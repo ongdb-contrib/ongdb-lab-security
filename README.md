@@ -83,12 +83,16 @@ CALL dbms.security.addRoleToUser('publisher_proc',user) RETURN user;
 
 ### 5、使用Administrator账户分别为reader-*、publisher-*账户配置可用的操作权限
 - 为`Publisher-1`配置权限
+>说明：
+>1. 配置Publisher权限【合并权限列表】【admin】
+>2. 对于`properties`配置字段值检查`check`时可以使用`olab.security.getValueTypes`查看可配置的值检查类型
+>1. properties不为空时表示对可操作属性进行限制,为空时表示没有配置属性权限
+
+>`olab.security.setPublisher`入参：
+>1. @param username:用户名
+>2. @param nodeLabels:可操作的标签列表【可为空】【追加】 label properties[<field,operator>] operator
+>3. @param relTypes:可操作的关系类型列表【可为空】【追加】 start_label type end_label properties[<field,operator[]>] operator
 ```
-// 配置Publisher权限【合并权限列表】【admin】
-// @param username:用户名
-// @param nodeLabels:可操作的标签列表【可为空】【追加】 label properties[<field,operator>] operator
-// @param relTypes:可操作的关系类型列表【可为空】【追加】 start_label type end_label properties[<field,operator[]>] operator
-// properties不为空时表示对可操作属性进行限制
 CALL olab.security.setPublisher('publisher-1',[{label:'Person',properties:[{field:'name',operator:'DELETER_RESTRICT',check:'STRING'}],operator:'EDITOR'}],[{start_label:'Person',type:'ACTED_IN',end_label:'Movie',operator:'DELETER_RESTRICT',properties:[{field:'date',operator:'PUBLISHER',check:'LONG'}]}]) YIELD username,currentRole,nodeLabels,relTypes RETURN username,currentRole,nodeLabels,relTypes
 // 标签和关系类型配置为NULL时，可查看已有权限
 CALL olab.security.setPublisher('publisher-1',NULL,NULL) YIELD username,currentRole,nodeLabels,relTypes RETURN username,currentRole,nodeLabels,relTypes

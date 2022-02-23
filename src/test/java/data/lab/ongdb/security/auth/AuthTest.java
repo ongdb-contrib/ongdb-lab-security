@@ -8,6 +8,8 @@ import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.harness.junit.Neo4jRule;
 
+import java.util.Map;
+
 /*
  *
  * Data Lab - graph database organization.
@@ -84,9 +86,10 @@ public class AuthTest {
     public void getValueTypes() {
         try (Transaction tx = DB_PROC.beginTx()) {
             Result res = DB_PROC.execute("CALL olab.security.getValueTypes() YIELD value RETURN value");
-//            while (res.hasNext()){
-//                System.out.println(res.next().get("value"));
-//            }
+            while (res.hasNext()){
+                Map<String,Object> map =res.next();
+                System.out.println(map.get("value"));
+            }
         }
     }
 }

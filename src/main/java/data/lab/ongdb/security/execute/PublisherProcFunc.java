@@ -46,6 +46,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      */
     @Override
     public Stream<Node> mergeNode(String label, String mergeField, String mergeValue, Map<String, Object> otherPros, List<String> otherLabels) {
+
         return null;
     }
 

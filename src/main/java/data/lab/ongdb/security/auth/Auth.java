@@ -291,7 +291,7 @@ public class Auth implements AuthInter {
     public Stream<Output> getValueTypes() {
         return Arrays.asList(Types.values())
                 .parallelStream()
-                .map(Output::new)
+                .map(v-> new Output( v.toString()))
                 .collect(Collectors.toList())
                 .stream();
     }
