@@ -1,5 +1,6 @@
 package data.lab.ongdb.security.execute;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -30,6 +31,11 @@ public class ReaderProcFuncTest {
     @Before
     public void setUp() throws Exception {
         DB_PROC = NEO4J_PROC.getGraphDatabaseService();
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        DB_PROC.shutdown();
     }
 
     @Test

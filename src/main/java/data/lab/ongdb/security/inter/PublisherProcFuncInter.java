@@ -5,21 +5,29 @@ package data.lab.ongdb.security.inter;
  *
  */
 
+import com.alibaba.fastjson.JSONObject;
 import data.lab.ongdb.security.result.MapResult;
-import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.Path;
+import org.neo4j.cypher.ParameterNotFoundException;
 
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
 /**
+ * 数据修改
+ *
  * @author Yc-Ma
  * @PACKAGE_NAME: data.lab.ongdb.security.inter
  * @Description: TODO
  * @date 2022/2/21 17:29
  */
 public interface PublisherProcFuncInter {
+
+    /*
+      核心步骤：
+      1、定义入口
+      2、定义入参检查接口
+      3、定义权限检查接口
+      **/
 
     /**
      * 合并节点
@@ -28,11 +36,20 @@ public interface PublisherProcFuncInter {
      * @param mergeField:合并时使用的字段名
      * @param mergeValue:合并时合并字段设置的值
      * @param otherPros:其它需要设置的节点属性信息
-     * @param otherLabels:其它需要设置的标签信息
      * @return
      * @Description: TODO
      */
-    Stream<Node> mergeNode(String label, String mergeField, String mergeValue, Map<String, Object> otherPros, List<String> otherLabels);
+    Stream<MapResult> mergeNode(String label, String mergeField, Object mergeValue, Map<String, Object> otherPros);
+
+    /**
+     * 分用户检查入参
+     **/
+    void mergeNodeParaCheck(JSONObject userAuth, String label, String mergeField, Object mergeValue, Map<String, Object> otherPros) throws ParameterNotFoundException;
+
+    /**
+     * 分用户权限检查
+     **/
+    void mergeNodeAuthCheck(JSONObject userAuth, String label, String mergeField, Object mergeValue, Map<String, Object> otherPros) throws ParameterNotFoundException;
 
     /**
      * 删除节点
@@ -44,6 +61,16 @@ public interface PublisherProcFuncInter {
     Stream<MapResult> deleteNode(Long nodeId);
 
     /**
+     * 分用户检查入参
+     **/
+    void deleteNodeParaCheck(JSONObject userAuth, Long nodeId) throws ParameterNotFoundException;
+
+    /**
+     * 分用户权限检查
+     **/
+    void deleteNodeAuthCheck(JSONObject userAuth, Long nodeId) throws ParameterNotFoundException;
+
+    /**
      * 合并关系
      *
      * @param startId:from节点ID
@@ -53,7 +80,17 @@ public interface PublisherProcFuncInter {
      * @return
      * @Description: TODO
      */
-    Stream<Path> mergeRelationship(Long startId, Long endId, String mergeRelType, Map<String, Object> relPros);
+    Stream<MapResult> mergeRelationship(Long startId, Long endId, String mergeRelType, Map<String, Object> relPros);
+
+    /**
+     * 分用户检查入参
+     **/
+    void mergeRelationshipParaCheck(JSONObject userAuth, Long startId, Long endId, String mergeRelType, Map<String, Object> relPros) throws ParameterNotFoundException;
+
+    /**
+     * 分用户权限检查
+     **/
+    void mergeRelationshipAuthCheck(JSONObject userAuth, Long startId, Long endId, String mergeRelType, Map<String, Object> relPros) throws ParameterNotFoundException;
 
     /**
      * 删除关系
@@ -65,6 +102,16 @@ public interface PublisherProcFuncInter {
     Stream<MapResult> deleteRelationship(Long relId);
 
     /**
+     * 分用户检查入参
+     **/
+    void deleteRelationshipParaCheck(JSONObject userAuth, Long relId) throws ParameterNotFoundException;
+
+    /**
+     * 分用户权限检查
+     **/
+    void deleteRelationshipAuthCheck(JSONObject userAuth, Long relId) throws ParameterNotFoundException;
+
+    /**
      * 修改节点的属性值
      *
      * @param nodeId:节点ID
@@ -73,7 +120,17 @@ public interface PublisherProcFuncInter {
      * @return
      * @Description: TODO
      */
-    Stream<Node> updateNode(Long nodeId, String fieldName, Object fieldValue);
+    Stream<MapResult> updateNode(Long nodeId, String fieldName, Object fieldValue);
+
+    /**
+     * 分用户检查入参
+     **/
+    void updateNodeParaCheck(JSONObject userAuth, Long nodeId, String fieldName, Object fieldValue) throws ParameterNotFoundException;
+
+    /**
+     * 分用户权限检查
+     **/
+    void updateNodeAuthCheck(JSONObject userAuth, Long nodeId, String fieldName, Object fieldValue) throws ParameterNotFoundException;
 
     /**
      * 修改关系的属性值
@@ -84,7 +141,17 @@ public interface PublisherProcFuncInter {
      * @return
      * @Description: TODO
      */
-    Stream<Path> updateRelationship(Long relId, String fieldName, Object fieldValue);
+    Stream<MapResult> updateRelationship(Long relId, String fieldName, Object fieldValue);
+
+    /**
+     * 分用户检查入参
+     **/
+    void updateRelationshipParaCheck(JSONObject userAuth, Long relId, String fieldName, Object fieldValue) throws ParameterNotFoundException;
+
+    /**
+     * 分用户权限检查
+     **/
+    void updateRelationshipAuthCheck(JSONObject userAuth, Long relId, String fieldName, Object fieldValue) throws ParameterNotFoundException;
 
     /**
      * 删除节点的属性键
@@ -93,7 +160,17 @@ public interface PublisherProcFuncInter {
      * @return
      * @Description: TODO
      */
-    Stream<Node> removeNodeKey(Long nodeId, String fieldName);
+    Stream<MapResult> removeNodeKey(Long nodeId, String fieldName);
+
+    /**
+     * 分用户检查入参
+     **/
+    void removeNodeKeyParaCheck(JSONObject userAuth, Long nodeId, String fieldName) throws ParameterNotFoundException;
+
+    /**
+     * 分用户权限检查
+     **/
+    void removeNodeKeyAuthCheck(JSONObject userAuth, Long nodeId, String fieldName) throws ParameterNotFoundException;
 
     /**
      * 删除节点的某个标签
@@ -102,15 +179,57 @@ public interface PublisherProcFuncInter {
      * @return
      * @Description: TODO
      */
-    Stream<Node> removeNodeLabel(Long nodeId, String label);
+    Stream<MapResult> removeNodeLabel(Long nodeId, String label);
+
+    /**
+     * 分用户检查入参
+     **/
+    void removeNodeLabelParaCheck(JSONObject userAuth, Long nodeId, String label) throws ParameterNotFoundException;
+
+    /**
+     * 分用户权限检查
+     **/
+    void removeNodeLabelAuthCheck(JSONObject userAuth, Long nodeId, String label) throws ParameterNotFoundException;
 
     /**
      * 删除关系的属性键
+     *
      * @param
      * @return
      * @Description: TODO
      */
-    Stream<Path> removeRelationshipKey(Long relId, String fieldName);
+    Stream<MapResult> removeRelationshipKey(Long relId, String fieldName);
+
+    /**
+     * 分用户检查入参
+     **/
+    void removeRelationshipKeyParaCheck(JSONObject userAuth, Long relId, String fieldName) throws ParameterNotFoundException;
+
+    /**
+     * 分用户权限检查
+     **/
+    void removeRelationshipKeyAuthCheck(JSONObject userAuth, Long relId, String fieldName) throws ParameterNotFoundException;
+
+    /**
+     * 增加节点的标签
+     *
+     * @param nodeId:节点ID
+     * @param label:标签
+     * @return
+     * @Description: TODO
+     */
+    Stream<MapResult> addNodeLabel(Long nodeId, String label);
+
+    /**
+     * 分用户检查入参
+     **/
+    void addNodeLabelParaCheck(JSONObject userAuth, Long nodeId, String label) throws ParameterNotFoundException;
+
+    /**
+     * 分用户权限检查
+     **/
+    void addNodeLabelAuthCheck(JSONObject userAuth, Long nodeId, String label) throws ParameterNotFoundException;
+
 }
 
 

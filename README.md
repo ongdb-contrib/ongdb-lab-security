@@ -1,5 +1,5 @@
 # ongdb-lab-security
->&nbsp;&nbsp;&nbsp;&nbsp;细粒度图数据访问控制组件，数据库管理员通过配置`特殊角色`账户的形式，支持`在线自定义配置`进行`热更新`权限操作，不用重启数据库服务。读写权限的控制粒度可以细化到标签、关系、属性，并且区分不同的用户对数据删除权限进行严格管控。
+>&nbsp;&nbsp;&nbsp;&nbsp;细粒度图数据访问控制组件，数据库管理员通过配置`特殊角色`账户的形式实现，支持`在线自定义配置`进行`热更新`权限操作，不用重启数据库服务。读写权限的控制粒度可以细化到标签、关系、属性，并且区分不同的用户对数据删除权限进行严格管控。
 
 >&nbsp;&nbsp;&nbsp;&nbsp;主要实现`细粒度读写`和`细粒度读`权限的配置。`细粒度写`可以控制用户只能操作某些标签、关系以及属性，是否可以新建与修改属性、标签和关系，取决于权限的细粒度配置。`细粒度读`可以限制用户只能执行某些数据的查询，并支持指定具体的Query，相当于为用户指定了一个Query白名单。
 
@@ -76,10 +76,12 @@ CALL dbms.security.addRoleToUser('publisher_proc',user) RETURN user;
 
 |操作级别|类型|说明|
 |---|---|---|
-|1|EDITOR|对已有数据的编辑修改权限 |
-|2|PUBLISHER|对已有数据的编辑修改权限、拥有创建新数据权限|
-|3|DELETER_RESTRICT|对已有数据的编辑修改权限、拥有创建新数据权限、拥有删除数据权限<br>【仅允许删除用户自己创建的数据】<br>【当属性设置为该权限时，如果用户对节点或关系存在大于该级别的权限则属性也可以执行一样的权限级别】|
-|4|DELETER|对已有数据的编辑修改权限、拥有创建新数据权限、拥有删除数据权限|
+|1|READER_FORBID|禁止读取 |
+|2|READER|可以读取 |
+|3|EDITOR|对已有数据的编辑修改权限 |
+|4|PUBLISHER|对已有数据的编辑修改权限、拥有创建新数据权限|
+|5|DELETER_RESTRICT|对已有数据的编辑修改权限、拥有创建新数据权限、拥有删除数据权限<br>【仅允许删除用户自己创建的数据】<br>【当属性设置为该权限时，如果用户对节点或关系存在大于该级别的权限则属性也可以执行一样的权限级别】|
+|6|DELETER|对已有数据的编辑修改权限、拥有创建新数据权限、拥有删除数据权限|
 
 ### 5、使用Administrator账户分别为reader-*、publisher-*账户配置可用的操作权限
 - 为`Publisher-1`配置权限
@@ -131,7 +133,7 @@ CALL olab.security.getAuth() YIELD operate,level,description RETURN operate,leve
 
 - 2.合并节点
 ```
-CALL olab.security.publisher.merge.node({label},{merge_field},{merge_value},{[other_pros]},{[other_labels]}) YIELD node RETURN node
+CALL olab.security.publisher.merge.node({label},{merge_field},{merge_value},{[other_pros]}) YIELD value RETURN value
 ```
 
 - 3.删除节点
@@ -141,7 +143,7 @@ CALL olab.security.publisher.delete.node({node_id}) YIELD value RETURN value
 
 - 4.合并关系
 ```
-CALL olab.security.publisher.merge.relationship({start_id},{end_id},{merge_rel_type},{rel_pros}) YIELD path RETURN path
+CALL olab.security.publisher.merge.relationship({start_id},{end_id},{merge_rel_type},{rel_pros}) YIELD value RETURN value
 ```
 
 - 5.删除关系
@@ -151,27 +153,32 @@ CALL olab.security.publisher.delete.relationship({rel_id}) YIELD value RETURN va
 
 - 6.修改节点的属性值
 ```
-CALL olab.security.publisher.update.node({node_id},{field_name},{field_value}) YIELD node RETURN node
+CALL olab.security.publisher.update.node({node_id},{field_name},{field_value}) YIELD value RETURN value
 ```
 
 - 7.修改关系的属性值
 ```
-CALL olab.security.publisher.update.relationship({rel_id},{field_name},{field_value}) YIELD path RETURN path
+CALL olab.security.publisher.update.relationship({rel_id},{field_name},{field_value}) YIELD value RETURN value
 ```
 
 - 8.删除节点的属性键
 ```
-CALL olab.security.publisher.remove.node.key({node_id},{field_name}) YIELD node RETURN node
+CALL olab.security.publisher.remove.node.key({node_id},{field_name}) YIELD value RETURN value
 ```
 
 - 9.删除节点的某个标签
 ```
-CALL olab.security.publisher.remove.node.label({node_id},{label}) YIELD node RETURN node
+CALL olab.security.publisher.remove.node.label({node_id},{label}) YIELD value RETURN value
 ```
 
 - 10.删除关系的属性键
 ```
-CALL olab.security.publisher.remove.relationship.key({rel_id},{field_name}) YIELD path RETURN path
+CALL olab.security.publisher.remove.relationship.key({rel_id},{field_name}) YIELD value RETURN value
+```
+
+- 11.增加节点的标签
+```
+CALL olab.security.publisher.add.node.label({node_id},{label}) YIELD value RETURN value
 ```
 
 ### 2、`reader_proc`角色的账户使用
@@ -180,7 +187,6 @@ CALL olab.security.publisher.remove.relationship.key({rel_id},{field_name}) YIEL
 - 1.查看拥有的权限
 ```
 CALL olab.security.get() YIELD value RETURN value
-CALL olab.security.getAuth() YIELD operate,level,description RETURN operate,level,description
 ```
 
 - 2.执行查询

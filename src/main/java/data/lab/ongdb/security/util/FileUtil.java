@@ -142,6 +142,7 @@ public class FileUtil {
                         return new HashMap<String, String>() {{
                             put("field", object.getString("field"));
                             put("operator", object.getString("operator"));
+                            put("check", object.getString("check"));
                         }};
                     })
                     .collect(Collectors.toList());

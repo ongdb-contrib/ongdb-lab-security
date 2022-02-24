@@ -30,7 +30,8 @@ import static org.neo4j.procedure.Mode.DBMS;
 import static org.neo4j.procedure.Mode.READ;
 
 /**
- * 自定义权限配置【生成配置文件位置：auth/auth.json】
+ * 自定义权限配置
+ * 【生成配置文件位置：auth/auth.json】
  *
  * @author Yc-Ma
  * @PACKAGE_NAME: data.lab.ongdb.security
@@ -77,85 +78,92 @@ public class Auth implements AuthInter {
     }
 
     private void check(List<Map<String, Object>> nodeLabels, List<Map<String, Object>> relTypes) throws ParameterNotFoundException {
+        if ((Objects.isNull(nodeLabels) || nodeLabels.isEmpty()) && (Objects.isNull(relTypes) || relTypes.isEmpty())) {
+            throw new ParameterNotFoundException("neither nodeLabels nor relTypes [not exist] exist!");
+        }
         nodeLabelsCheck(nodeLabels);
         relTypesCheck(relTypes);
     }
 
-    private void relTypesCheck(List<Map<String, Object>> relTypes) {
-        for (int i = 0; i < relTypes.size(); i++) {
-            Map<String, Object> v = relTypes.get(i);
+    private void relTypesCheck(List<Map<String, Object>> relTypes) throws ParameterNotFoundException {
+        if (Objects.nonNull(relTypes)) {
+            for (int i = 0; i < relTypes.size(); i++) {
+                Map<String, Object> v = relTypes.get(i);
 
-            for (String field : new String[]{"start_label", "type", "end_label"}) {
-                if (!v.containsKey(field)) {
-                    throw new ParameterNotFoundException("relTypes:" + field + " not exists!" + "index:" + i);
-                } else if (!(v.get(field) instanceof String)) {
-                    throw new ParameterNotFoundException("relTypes:" + field + " [Set String] type error!" + "index:" + i);
+                for (String field : new String[]{"start_label", "type", "end_label"}) {
+                    if (!v.containsKey(field)) {
+                        throw new ParameterNotFoundException("relTypes:" + field + " not exists!" + "index:" + i);
+                    } else if (!(v.get(field) instanceof String)) {
+                        throw new ParameterNotFoundException("relTypes:" + field + " [Set String] type error!" + "index:" + i);
+                    }
                 }
-            }
 
-            if (!v.containsKey("properties")) {
-                throw new ParameterNotFoundException("relTypes:properties not exists!" + "index:" + i);
-            } else if (!(v.get("properties") instanceof List)) {
-                throw new ParameterNotFoundException("relTypes:properties [Set List] type error!" + "index:" + i);
-            } else {
-                JSONArray properties = JSONArray.parseArray(JSON.toJSONString(v.get("properties")));
-                for (int j = 0; j < properties.size(); j++) {
-                    JSONObject object = (JSONObject) properties.get(j);
-                    for (String field : new String[]{"field", "operator", "check"}) {
-                        if (!object.containsKey(field)) {
-                            throw new ParameterNotFoundException("relTypes.properties:" + field + " not exists!" + "index:" + i + ",properties_index:" + j);
-                        } else if (!(object.get(field) instanceof String)) {
-                            throw new ParameterNotFoundException("relTypes.properties:" + field + " [Set String] type error!" + "index:" + i + ",properties_index:" + j);
-                        } else if ("operator".equals(field)) {
-                            operatorValueCheck(object.getString("operator"), "relTypes", i, j);
+                if (!v.containsKey("properties")) {
+                    throw new ParameterNotFoundException("relTypes:properties not exists!" + "index:" + i);
+                } else if (!(v.get("properties") instanceof List)) {
+                    throw new ParameterNotFoundException("relTypes:properties [Set List] type error!" + "index:" + i);
+                } else {
+                    JSONArray properties = JSONArray.parseArray(JSON.toJSONString(v.get("properties")));
+                    for (int j = 0; j < properties.size(); j++) {
+                        JSONObject object = (JSONObject) properties.get(j);
+                        for (String field : new String[]{"field", "operator", "check"}) {
+                            if (!object.containsKey(field)) {
+                                throw new ParameterNotFoundException("relTypes.properties:" + field + " not exists!" + "index:" + i + ",properties_index:" + j);
+                            } else if (!(object.get(field) instanceof String)) {
+                                throw new ParameterNotFoundException("relTypes.properties:" + field + " [Set String] type error!" + "index:" + i + ",properties_index:" + j);
+                            } else if ("operator".equals(field)) {
+                                operatorValueCheck(object.getString("operator"), "relTypes", i, j);
+                            }
                         }
                     }
                 }
-            }
-            if (!v.containsKey("operator")) {
-                throw new ParameterNotFoundException("relTypes:operator not exists!" + "index:" + i);
-            } else if (!(v.get("operator") instanceof String)) {
-                throw new ParameterNotFoundException("relTypes:operator [Set List] type error!" + "index:" + i);
-            } else {
-                operatorValueCheck(String.valueOf(v.get("operator")), "relTypes", i, -1);
+                if (!v.containsKey("operator")) {
+                    throw new ParameterNotFoundException("relTypes:operator not exists!" + "index:" + i);
+                } else if (!(v.get("operator") instanceof String)) {
+                    throw new ParameterNotFoundException("relTypes:operator [Set List] type error!" + "index:" + i);
+                } else {
+                    operatorValueCheck(String.valueOf(v.get("operator")), "relTypes", i, -1);
+                }
             }
         }
     }
 
-    private void nodeLabelsCheck(List<Map<String, Object>> nodeLabels) {
-        for (int i = 0; i < nodeLabels.size(); i++) {
-            Map<String, Object> v = nodeLabels.get(i);
-            if (!v.containsKey("label")) {
-                throw new ParameterNotFoundException("nodeLabels:label not exists!" + "index:" + i);
-            } else if (!(v.get("label") instanceof String)) {
-                throw new ParameterNotFoundException("nodeLabels:label [Set String] type error!" + "index:" + i);
-            }
+    private void nodeLabelsCheck(List<Map<String, Object>> nodeLabels) throws ParameterNotFoundException {
+        if (Objects.nonNull(nodeLabels)) {
+            for (int i = 0; i < nodeLabels.size(); i++) {
+                Map<String, Object> v = nodeLabels.get(i);
+                if (!v.containsKey("label")) {
+                    throw new ParameterNotFoundException("nodeLabels:label not exists!" + "index:" + i);
+                } else if (!(v.get("label") instanceof String)) {
+                    throw new ParameterNotFoundException("nodeLabels:label [Set String] type error!" + "index:" + i);
+                }
 
-            if (!v.containsKey("properties")) {
-                throw new ParameterNotFoundException("nodeLabels:properties not exists!" + "index:" + i);
-            } else if (!(v.get("properties") instanceof List)) {
-                throw new ParameterNotFoundException("nodeLabels:properties [Set List] type error!" + "index:" + i);
-            } else {
-                JSONArray properties = JSONArray.parseArray(JSON.toJSONString(v.get("properties")));
-                for (int j = 0; j < properties.size(); j++) {
-                    JSONObject object = (JSONObject) properties.get(j);
-                    for (String field : new String[]{"field", "operator", "check"}) {
-                        if (!object.containsKey(field)) {
-                            throw new ParameterNotFoundException("nodeLabels.properties:" + field + " not exists!" + "index:" + i + ",properties_index:" + j);
-                        } else if (!(object.get(field) instanceof String)) {
-                            throw new ParameterNotFoundException("nodeLabels.properties:" + field + " [Set String] type error!" + "index:" + i + ",properties_index:" + j);
-                        } else if ("operator".equals(field)) {
-                            operatorValueCheck(object.getString("operator"), "nodeLabels", i, j);
+                if (!v.containsKey("properties")) {
+                    throw new ParameterNotFoundException("nodeLabels:properties not exists!" + "index:" + i);
+                } else if (!(v.get("properties") instanceof List)) {
+                    throw new ParameterNotFoundException("nodeLabels:properties [Set List] type error!" + "index:" + i);
+                } else {
+                    JSONArray properties = JSONArray.parseArray(JSON.toJSONString(v.get("properties")));
+                    for (int j = 0; j < properties.size(); j++) {
+                        JSONObject object = (JSONObject) properties.get(j);
+                        for (String field : new String[]{"field", "operator", "check"}) {
+                            if (!object.containsKey(field)) {
+                                throw new ParameterNotFoundException("nodeLabels.properties:" + field + " not exists!" + "index:" + i + ",properties_index:" + j);
+                            } else if (!(object.get(field) instanceof String)) {
+                                throw new ParameterNotFoundException("nodeLabels.properties:" + field + " [Set String] type error!" + "index:" + i + ",properties_index:" + j);
+                            } else if ("operator".equals(field)) {
+                                operatorValueCheck(object.getString("operator"), "nodeLabels", i, j);
+                            }
                         }
                     }
                 }
-            }
-            if (!v.containsKey("operator")) {
-                throw new ParameterNotFoundException("nodeLabels:operator not exists!" + "index:" + i);
-            } else if (!(v.get("operator") instanceof String)) {
-                throw new ParameterNotFoundException("nodeLabels:operator [Set List] type error!" + "index:" + i);
-            } else {
-                operatorValueCheck(String.valueOf(v.get("operator")), "nodeLabels", i, -1);
+                if (!v.containsKey("operator")) {
+                    throw new ParameterNotFoundException("nodeLabels:operator not exists!" + "index:" + i);
+                } else if (!(v.get("operator") instanceof String)) {
+                    throw new ParameterNotFoundException("nodeLabels:operator [Set List] type error!" + "index:" + i);
+                } else {
+                    operatorValueCheck(String.valueOf(v.get("operator")), "nodeLabels", i, -1);
+                }
             }
         }
     }
@@ -190,6 +198,7 @@ public class Auth implements AuthInter {
     @Procedure(name = "olab.security.setReader", mode = DBMS)
     @Description("CALL olab.security.setReader('reader',[{query_id:'query001',query:'MATCH (n) RETURN n.name AS name LIMIT 1'}]) YIELD username,currentRole,queries - Configure Reader.")
     public Stream<Reader> setReader(@Name("username") String username, @Name("queries") List<Map<String, String>> queries) {
+        check(queries);
         if (Objects.nonNull(username)) {
             Reader rawReader = FileUtil.readReaderAuth(READER_AUTH_JSON, username, FileUtil.ENCODING);
             Reader newReader = new Reader(username, "admin", queries);
@@ -200,6 +209,22 @@ public class Auth implements AuthInter {
             return Stream.of(newReader);
         }
         return Stream.of(new Reader());
+    }
+
+    private void check(List<Map<String, String>> queries) {
+        if (Objects.isNull(queries) || queries.isEmpty()) {
+            throw new ParameterNotFoundException("queries not exist!");
+        }
+        for (int i = 0; i < queries.size(); i++) {
+            Map<String, String> v = queries.get(i);
+            for (String field : new String[]{"query_id", "query"}) {
+                if (!v.containsKey(field)) {
+                    throw new ParameterNotFoundException("queries:" + field + " not exists!" + "index:" + i);
+                } else if ((v.get(field) == null) || ("".equals(v.get(field)))) {
+                    throw new ParameterNotFoundException("queries:" + field + " [Set String] type error!" + "index:" + i);
+                }
+            }
+        }
     }
 
     /**
@@ -291,7 +316,7 @@ public class Auth implements AuthInter {
     public Stream<Output> getValueTypes() {
         return Arrays.asList(Types.values())
                 .parallelStream()
-                .map(v-> new Output( v.toString()))
+                .map(v -> new Output(v.toString()))
                 .collect(Collectors.toList())
                 .stream();
     }

@@ -7,9 +7,10 @@ package data.lab.ongdb.security.execute;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import data.lab.ongdb.security.common.ParaWrap;
+import data.lab.ongdb.security.common.UserAuthGet;
 import data.lab.ongdb.security.inter.ReaderProcFuncInter;
 import data.lab.ongdb.security.result.MapResult;
-import data.lab.ongdb.security.util.FileUtil;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.internal.kernel.api.security.SecurityContext;
 import org.neo4j.procedure.Context;
@@ -17,14 +18,11 @@ import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static java.lang.String.format;
 import static org.neo4j.procedure.Mode.READ;
 
 /**
@@ -65,30 +63,14 @@ public class ReaderProcFunc implements ReaderProcFuncInter {
 
             if (Objects.nonNull(query) && !"".equals(query)) {
                 Map<String, Object> params = Collections.emptyMap();
-                return db.execute(withParamMapping(query, params.keySet()), params).stream().map(MapResult::new);
+                return db.execute(ParaWrap.withParamMapping(query, params.keySet()), params).stream().map(MapResult::new);
             }
         }
         return Stream.of(MapResult.empty());
     }
 
-    public static String withParamMapping(String fragment, Collection<String> keys) {
-        if (keys.isEmpty()) {
-            return fragment;
-        }
-        String declaration = " WITH " + keys.stream().map(s -> format(" {`%s`} as `%s` ", s, s)).collect(Collectors.joining(", "));
-        return declaration + fragment;
-    }
-
     private String fetchQuery(String user, String queryId) {
-        JSONObject jsonObject = FileUtil.readAuthList(READER_AUTH_JSON)
-                .parallelStream()
-                .filter(v -> {
-                    JSONObject object = (JSONObject) v;
-                    return user.equals(object.get("username"));
-                })
-                .map(v -> (JSONObject) v)
-                .findFirst()
-                .orElse(new JSONObject());
+        JSONObject jsonObject = UserAuthGet.auth(user,READER_AUTH_JSON);
         JSONArray queries = jsonObject.getJSONArray("queries");
         if (Objects.nonNull(queries) && !queries.isEmpty()) {
             return queries

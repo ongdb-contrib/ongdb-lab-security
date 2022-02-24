@@ -10,6 +10,7 @@ import data.lab.ongdb.security.result.MapResult;
 import java.util.stream.Stream;
 
 /**
+ * 数据读取
  * @author Yc-Ma
  * @PACKAGE_NAME: data.lab.ongdb.security.inter
  * @Description: TODO
