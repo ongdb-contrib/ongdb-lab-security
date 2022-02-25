@@ -5,6 +5,8 @@ package data.lab.ongdb.security.role;
  *
  */
 
+import data.lab.ongdb.security.common.ParaWrap;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -110,8 +112,10 @@ public class Reader {
 
     public void merge(Reader reader) {
         this.queries.addAll(reader.queries);
-        this.queries = this.queries.parallelStream()
-                .distinct()
+        this.queries = this.queries.stream()
+                .filter(
+                        ParaWrap.distinctById(v -> String.valueOf(v.get("query_id")))
+                )
                 .collect(Collectors.toList());
     }
 }

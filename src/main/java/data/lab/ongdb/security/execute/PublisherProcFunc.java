@@ -69,10 +69,10 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
         // 主要对用户权限进行检查
         mergeNodeAuthCheck(userAuth, label, mergeField, mergeValue, otherPros);
 
-        String query = "MATCH (n:" + label + " {" + mergeField + ":$mergeValue}) SET n+=$otherPros";
+        String query = "MERGE (n:" + label + " {" + mergeField + ":$mergeValue}) SET n+=$otherPros RETURN ID(n) AS id";
         Map<String, Object> params = new HashMap<String, Object>() {{
             put("mergeValue", mergeValue);
-            put("otherPros", otherPros);
+            put("otherPros", Objects.nonNull(otherPros) ? otherPros : Collections.emptyMap());
         }};
         return db.execute(ParaWrap.withParamMapping(query, params.keySet()), params).stream().map(MapResult::new);
     }
@@ -581,10 +581,10 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      **/
     private void checkLabelOrType(String labelOrType, JSONArray invalidValues) throws ParameterNotFoundException {
         if (Objects.isNull(labelOrType) || "".equals(labelOrType)) {
-            throw new ParameterNotFoundException("label or type error!");
+            throw new ParameterNotFoundException("the label is of the wrong type or the label does not have permission!");
         }
-        if (invalidValues.contains(labelOrType)) {
-            throw new ParameterNotFoundException("label or type error!");
+        if (Objects.isNull(invalidValues) ||invalidValues.contains(labelOrType)) {
+            throw new ParameterNotFoundException("the label is of the wrong type or the label does not have permission!");
         }
     }
 

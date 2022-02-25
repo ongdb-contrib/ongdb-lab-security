@@ -5,10 +5,15 @@ package data.lab.ongdb.security.role;
  *
  */
 
+import data.lab.ongdb.security.common.ParaWrap;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -132,18 +137,36 @@ public class Publisher {
                 '}';
     }
 
+    /**
+     * 合并细粒度权限对象
+     *
+     * @param publisher：被合并对象
+     * @return
+     * @Description: TODO
+     */
     public void merge(Publisher publisher) {
+        // 使用label字段排重
         this.nodeLabels.addAll(publisher.nodeLabels);
-        this.nodeLabels = this.nodeLabels.parallelStream()
-                .distinct()
+        this.nodeLabels = this.nodeLabels.stream()
+                .filter(
+                        ParaWrap.distinctById(v -> String.valueOf(v.get("label")))
+                )
                 .collect(Collectors.toList());
 
+        // 使用start_label type end_label排重
         this.relTypes.addAll(publisher.relTypes);
-        this.relTypes = this.relTypes.parallelStream()
-                .distinct()
+        this.relTypes = this.relTypes.stream()
+                .filter(
+                        ParaWrap.distinctById(v ->
+                        String.valueOf(v.get("start_label"))+
+                        v.get("type")+
+                        v.get("end_label"))
+                )
                 .collect(Collectors.toList());
     }
+
 }
+
 
 
 

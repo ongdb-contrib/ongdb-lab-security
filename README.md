@@ -74,7 +74,7 @@ CALL dbms.security.addRoleToUser('publisher_proc',user) RETURN user;
 
 >&nbsp;&nbsp;&nbsp;&nbsp;权限下发机制，当节点拥有一个`PUBLISHER`权限时，用户可以对已有数据进行编辑修改并且可以创建新数据，对所属属性都可以执行`PUBLISHER`操作，但是无法删除。如果这时对节点的属性指定了一个`DELETER_RESTRICT`权限，那么用户则可以对自己创建的属性执行删除操作。如果对节点的属性指定了一个`DELETER`权限，则当前用户可以删除任何其它用户创建的属性数据。
 
->&nbsp;&nbsp;&nbsp;&nbsp;需要注意的是，使用`olab.security.setPublisher`或`olab.security.setReader`给原有用户增加权限时可以直接进行设置新权限，权限系统会自动进行追加。如果对原有权限进行修改时，需要先使用`olab.security.clear`重置权限然后全部重新设置，否则将出现意想不到的错误。
+>&nbsp;&nbsp;&nbsp;&nbsp;需要注意的是，使用`olab.security.setPublisher`或`olab.security.setReader`给原有用户增加权限时可以直接进行设置新权限，权限系统会自动进行追加。
 
 |操作级别|类型|说明|
 |---|---|---|
