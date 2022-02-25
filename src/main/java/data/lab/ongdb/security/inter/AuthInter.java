@@ -51,6 +51,16 @@ public interface AuthInter {
     Stream<Reader> setReader(String username, List<Map<String, String>> queries);
 
     /**
+     * 查看指定用户的权限列表【admin】
+     *
+     * @param username:用户名
+     * @return 返回指定用户的配置信息
+     * @Description: TODO
+     */
+    @Admin
+    Stream<Output> fetchUserAuth(String username);
+
+    /**
      * 重置指定用户的权限列表【admin】
      *
      * @param username:用户名

@@ -27,7 +27,7 @@
 - 2.修改`conf`配置
 ```
 // 为角色指定权限
-dbms.security.procedures.roles=olab.security.publisher.*:publisher_proc;olab.security.reader*:reader_proc;olab.security.get*:publisher_proc;olab.security.get*:reader_proc;
+dbms.security.procedures.roles=olab.security.publisher.*:publisher_proc;olab.security.reader*:reader_proc;olab.security.get*:publisher_proc,reader_proc;
 ```
 - 3.重启图数据库
 
@@ -88,16 +88,16 @@ CALL dbms.security.addRoleToUser('publisher_proc',user) RETURN user;
 >说明：
 >1. 配置Publisher权限【合并权限列表】【admin】
 >2. 对于`properties`配置字段值检查`check`时可以使用`olab.security.getValueTypes`查看可配置的值检查类型
->1. properties不为空时表示对可操作属性进行限制,为空时表示没有配置属性权限
+>3. properties不为空时表示对可操作属性进行限制,为空时表示没有配置属性权限
+>4. 对属性值进行检查：为用户设置权限时，对于值的类型也设置了`check`操作，在这里检查用户输入的值类型是否满足管理员限定的要求
+>5. 对属性值的也进行限制：设置权限时可设置`validity`参数，表示对值进行验证，如果属性值包含在这个列表中则提示属性错误，通常使用在限制用户输入错误的值或限制用户不能设置特定的属性值
 
 >`olab.security.setPublisher`入参：
 >1. @param username:用户名
 >2. @param nodeLabels:可操作的标签列表【可为空】【追加】 label properties[<field,operator>] operator
 >3. @param relTypes:可操作的关系类型列表【可为空】【追加】 start_label type end_label properties[<field,operator[]>] operator
 ```
-CALL olab.security.setPublisher('publisher-1',[{label:'Person',properties:[{field:'name',operator:'DELETER_RESTRICT',check:'STRING'}],operator:'EDITOR'}],[{start_label:'Person',type:'ACTED_IN',end_label:'Movie',operator:'DELETER_RESTRICT',properties:[{field:'date',operator:'PUBLISHER',check:'LONG'}]}]) YIELD username,currentRole,nodeLabels,relTypes RETURN username,currentRole,nodeLabels,relTypes
-// 标签和关系类型配置为NULL时，可查看已有权限
-CALL olab.security.setPublisher('publisher-1',NULL,NULL) YIELD username,currentRole,nodeLabels,relTypes RETURN username,currentRole,nodeLabels,relTypes
+CALL olab.security.setPublisher('publisher-1',[{label:'Person',properties:[{field:'name',operator:'DELETER_RESTRICT',check:'STRING',validity:['001','']}],operator:'EDITOR'}],[{start_label:'Person',type:'ACTED_IN',end_label:'Movie',operator:'DELETER_RESTRICT',properties:[{field:'date',operator:'PUBLISHER',check:'LONG',validity:['2021','']}]}]) YIELD username,currentRole,nodeLabels,relTypes RETURN username,currentRole,nodeLabels,relTypes
 ```
 
 - 为`Reader-1`配置权限
@@ -105,9 +105,12 @@ CALL olab.security.setPublisher('publisher-1',NULL,NULL) YIELD username,currentR
 // 配置Reader权限【合并权限列表】【admin】
 // @param username:用户名
 // @param queries:可执行查询列表 query_id query【可为空】【追加】【query_id不可重复】【Query需要返回属性键值格式，不支持直接返回节点和关系】
-CALL olab.security.setReader('reader-1',[{query_id:'query001',query:'MATCH (n) RETURN n.name AS name LIMIT 1'},{query_id:'query002',query:'MATCH (n) WITH n LIMIT 10 RETURN olab.result.transfer(n) AS mapList;'},{query_id:'query003',query:'MATCH ()-[r]->() WITH r LIMIT 10 WITH olab.result.transfer(r) AS mapList UNWIND mapList AS map RETURN map;'}]) YIELD username,currentRole,queries RETURN username,currentRole,queries
-// 配置的查询参数为NULL时，可查看已有权限
-CALL olab.security.setReader('reader-1',NULL) YIELD username,currentRole,queries RETURN username,currentRole,queries
+CALL olab.security.setReader('reader-1',[{query_id:'query001',query:'MATCH (n) RETURN n.name AS name LIMIT 10'},{query_id:'query002',query:'MATCH (n) WITH n LIMIT 10 RETURN olab.result.transfer(n) AS mapList;'},{query_id:'query003',query:'MATCH ()-[r]->() WITH r LIMIT 10 WITH olab.result.transfer(r) AS mapList UNWIND mapList AS map RETURN map;'},{query_id:'query004',query:'MATCH (tom {name:$name}) RETURN tom.name AS name,tom.born AS born;'}]) YIELD username,currentRole,queries RETURN username,currentRole,queries
+```
+
+- 获取指定用户的权限列表
+```
+CALL olab.security.fetchUserAuth('reader-1') YIELD value RETURN value
 ```
 
 - 重置指定用户的权限列表
@@ -191,8 +194,8 @@ CALL olab.security.get() YIELD value RETURN value
 
 - 2.执行查询
 ```
-CALL olab.security.reader('query001') YIELD value RETURN value;
-CALL olab.security.reader('query002') YIELD value RETURN value;
+CALL olab.security.reader('query001',NULL) YIELD value RETURN value;
+CALL olab.security.reader('query004',{name:'Tom Hanks'}) YIELD value RETURN value;
 ```
 
 

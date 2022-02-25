@@ -62,7 +62,8 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
         String user = securityContext.subject().username();
         JSONObject userAuth = UserAuthGet.auth(user, PUBLISHER_AUTH_JSON);
 
-        // 对属性值进行检查：为用户设置权限时，对于值的类型也设置了`check`操作，在这里检查用户输入的值是否满足管理员限定的要求
+        // 对属性值进行检查：为用户设置权限时，对于值的类型也设置了`check`操作，在这里检查用户输入的值类型是否满足管理员限定的要求
+        // 对属性值的也进行判断：设置权限时可设置`validity`参数，表示对值进行验证，如果属性值包含在这个列表中则提示属性错误，通常使用在限制用户输入错误的值或限制用户不能设置特定的属性值
         mergeNodeParaCheck(userAuth, label, mergeField, mergeValue, otherPros);
 
         // 主要对用户权限进行检查
@@ -120,7 +121,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
             }};
 
 
-            UserAuthGet.prosOperator(userAuth, label);
+//            UserAuthGet.prosOperator(userAuth, label);
 
         } else if (labelOperator.equals(Operator.EDITOR) || labelOperator.equals(Operator.PUBLISHER) ||
                 labelOperator.equals(Operator.DELETER_RESTRICT) || labelOperator.equals(Operator.DELETER)
@@ -472,6 +473,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
             Object value = map.get(key);
             checkField(key);
             checkValue(value, getValueCheckType(properties, key));
+            checkValueValidity(value,getValueCheckValidity(properties, key));
         }
     }
 
@@ -488,6 +490,18 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
     }
 
     /**
+     * @param value:属性值
+     * @param valueCheckValidity:权限配置的值的指定类型
+     * @return
+     * @Description: TODO
+     */
+    private void checkValueValidity(Object value, JSONArray valueCheckValidity) {
+        if (valueCheckValidity.contains(value)){
+            throw new ParameterNotFoundException("value validation failed!");
+        }
+    }
+
+    /**
      * 获取属性键对应值的检查类型
      **/
     private String getValueCheckType(JSONArray properties, String key) {
@@ -499,6 +513,20 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
                 .map(v -> (JSONObject) v)
                 .findFirst()
                 .orElse(new JSONObject()).getString("check");
+    }
+
+    /**
+     * 获取属性键对应值的有效性检查
+     **/
+    private JSONArray getValueCheckValidity(JSONArray properties, String key) {
+        return properties.parallelStream()
+                .filter(v -> {
+                    JSONObject jsonObject = (JSONObject) v;
+                    return key.equals(jsonObject.get("field"));
+                })
+                .map(v -> (JSONObject) v)
+                .findFirst()
+                .orElse(new JSONObject()).getJSONArray("validity");
     }
 
     /**

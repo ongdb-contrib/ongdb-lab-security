@@ -43,6 +43,7 @@ public class ReaderProcFunc implements ReaderProcFuncInter {
 
     /**
      * 通过分配给用户的QUERY ID执行查询语句
+     *
      * @param queryId :限制性只读用户可执行的查询ID【获取可执行查询ID：CALL olab.security.get() YIELD value RETURN value】
      * @return
      * @Description: TODO
@@ -50,7 +51,7 @@ public class ReaderProcFunc implements ReaderProcFuncInter {
     @Override
     @Procedure(name = "olab.security.reader", mode = READ)
     @Description("CALL olab.security.reader({query-id}) YIELD value")
-    public Stream<MapResult> query(@Name("queryId") String queryId) {
+    public Stream<MapResult> query(@Name("queryId") String queryId, @Name("params") Map<String, Object> params) {
 
         String user = securityContext.subject().username();
 
@@ -60,9 +61,8 @@ public class ReaderProcFunc implements ReaderProcFuncInter {
 
         if (Objects.nonNull(queryId) && !"".equals(queryId)) {
             String query = fetchQuery(user, queryId);
-
             if (Objects.nonNull(query) && !"".equals(query)) {
-                Map<String, Object> params = Collections.emptyMap();
+                params = Objects.isNull(params) ? Collections.emptyMap() : params;
                 return db.execute(ParaWrap.withParamMapping(query, params.keySet()), params).stream().map(MapResult::new);
             }
         }
@@ -70,7 +70,7 @@ public class ReaderProcFunc implements ReaderProcFuncInter {
     }
 
     private String fetchQuery(String user, String queryId) {
-        JSONObject jsonObject = UserAuthGet.auth(user,READER_AUTH_JSON);
+        JSONObject jsonObject = UserAuthGet.auth(user, READER_AUTH_JSON);
         JSONArray queries = jsonObject.getJSONArray("queries");
         if (Objects.nonNull(queries) && !queries.isEmpty()) {
             return queries

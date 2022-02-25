@@ -10,6 +10,7 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import data.lab.ongdb.security.common.Operator;
 import data.lab.ongdb.security.common.Types;
+import data.lab.ongdb.security.common.UserAuthGet;
 import data.lab.ongdb.security.inter.AuthInter;
 import data.lab.ongdb.security.model.User;
 import data.lab.ongdb.security.result.ListResult;
@@ -115,6 +116,11 @@ public class Auth implements AuthInter {
                                 operatorValueCheck(object.getString("operator"), "relTypes", i, j);
                             }
                         }
+                        if (!object.containsKey("validity")) {
+                            throw new ParameterNotFoundException("nodeLabels.properties:" + "validity" + " not exists!" + "index:" + i + ",properties_index:" + j);
+                        } else if (!(object.get("validity") instanceof List)) {
+                            throw new ParameterNotFoundException("nodeLabels.properties:" + "validity" + " [Set List] type error!" + "index:" + i + ",properties_index:" + j);
+                        }
                     }
                 }
                 if (!v.containsKey("operator")) {
@@ -154,6 +160,11 @@ public class Auth implements AuthInter {
                             } else if ("operator".equals(field)) {
                                 operatorValueCheck(object.getString("operator"), "nodeLabels", i, j);
                             }
+                        }
+                        if (!object.containsKey("validity")) {
+                            throw new ParameterNotFoundException("nodeLabels.properties:" + "validity" + " not exists!" + "index:" + i + ",properties_index:" + j);
+                        } else if (!(object.get("validity") instanceof List)) {
+                            throw new ParameterNotFoundException("nodeLabels.properties:" + "validity" + " [Set List] type error!" + "index:" + i + ",properties_index:" + j);
                         }
                     }
                 }
@@ -209,6 +220,31 @@ public class Auth implements AuthInter {
             return Stream.of(newReader);
         }
         return Stream.of(new Reader());
+    }
+
+    /**
+     * 查看指定用户的权限列表【admin】
+     *
+     * @param username :用户名
+     * @return 返回指定用户的配置信息
+     * @Description: TODO
+     */
+    @Override
+    @Admin
+    @Procedure(name = "olab.security.fetchUserAuth", mode = DBMS)
+    @Description("CALL olab.security.fetchUserAuth('reader-1') YIELD value RETURN value")
+    public Stream<Output> fetchUserAuth(@Name("username") String username) {
+        return Stream.of(
+                FileUtil.readAuthList(READER_AUTH_JSON, PUBLISHER_AUTH_JSON)
+                .parallelStream()
+                .filter(v -> {
+                    JSONObject object = (JSONObject) v;
+                    return object.getString("username").equals(username);
+                })
+                .map(Output::new)
+                .findFirst()
+                .orElse(new Output())
+        );
     }
 
     private void check(List<Map<String, String>> queries) {

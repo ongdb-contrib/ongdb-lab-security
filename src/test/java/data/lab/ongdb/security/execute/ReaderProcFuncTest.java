@@ -41,7 +41,7 @@ public class ReaderProcFuncTest {
     @Test
     public void query() {
         try (Transaction tx = DB_PROC.beginTx()) {
-            Result res = DB_PROC.execute("CALL olab.security.reader('query001') YIELD value RETURN value");
+            Result res = DB_PROC.execute("CALL olab.security.reader('query002',{name:'Tom Hanks'}) YIELD value RETURN value");
             System.out.println(res.resultAsString());
         }
     }

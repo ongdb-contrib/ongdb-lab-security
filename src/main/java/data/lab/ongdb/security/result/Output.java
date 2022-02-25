@@ -14,6 +14,9 @@ package data.lab.ongdb.security.result;
 public class Output {
     public Object value;
 
+    public Output() {
+    }
+
     public Output(Object value) {
         this.value = value;
     }

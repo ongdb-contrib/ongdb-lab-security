@@ -37,7 +37,7 @@ public class AuthTest {
     @Test
     public void setPublisher() {
         try (Transaction tx = DB_PROC.beginTx()) {
-            Result res = DB_PROC.execute("CALL olab.security.setPublisher('publisher-1',[{label:'Person',properties:[{field:'name',operator:'DELETER_RESTRICT',check:'STRING'}],operator:'EDITOR'}],[{start_label:'Person',type:'ACTED_IN',end_label:'Movie',operator:'DELETER_RESTRICT',properties:[{field:'date',operator:'PUBLISHER',check:'LONG'}]}]) YIELD username,currentRole,nodeLabels,relTypes RETURN username,currentRole,nodeLabels,relTypes");
+            Result res = DB_PROC.execute("CALL olab.security.setPublisher('publisher-1',[{label:'Person',properties:[{field:'name',operator:'DELETER_RESTRICT',check:'STRING',validity:['001','']}],operator:'EDITOR'}],[{start_label:'Person',type:'ACTED_IN',end_label:'Movie',operator:'DELETER_RESTRICT',properties:[{field:'date',operator:'PUBLISHER',check:'LONG',validity:['2021','']}]}]) YIELD username,currentRole,nodeLabels,relTypes RETURN username,currentRole,nodeLabels,relTypes");
             System.out.println(res.resultAsString());
         }
     }
@@ -45,7 +45,7 @@ public class AuthTest {
     @Test
     public void setReader() {
         try (Transaction tx = DB_PROC.beginTx()) {
-            Result res = DB_PROC.execute("CALL olab.security.setReader('reader',[{query_id:'query001',query:'MATCH (n) RETURN n.name AS name LIMIT 1'}]) YIELD username,currentRole,queries RETURN username,currentRole,queries");
+            Result res = DB_PROC.execute("CALL olab.security.setReader('reader-1',[{query_id:'query001',query:'MATCH (n) RETURN n.name AS name LIMIT 10'},{query_id:'query002',query:'MATCH (n) WITH n LIMIT 10 RETURN olab.result.transfer(n) AS mapList;'},{query_id:'query003',query:'MATCH ()-[r]->() WITH r LIMIT 10 WITH olab.result.transfer(r) AS mapList UNWIND mapList AS map RETURN map;'},{query_id:'query004',query:'MATCH (tom {name:$name}) RETURN tom;'}]) YIELD username,currentRole,queries RETURN username,currentRole,queries");
             System.out.println(res.resultAsString());
         }
     }
@@ -86,6 +86,17 @@ public class AuthTest {
     public void getValueTypes() {
         try (Transaction tx = DB_PROC.beginTx()) {
             Result res = DB_PROC.execute("CALL olab.security.getValueTypes() YIELD value RETURN value");
+            while (res.hasNext()){
+                Map<String,Object> map =res.next();
+                System.out.println(map.get("value"));
+            }
+        }
+    }
+
+    @Test
+    public void fetchUserAuth() {
+        try (Transaction tx = DB_PROC.beginTx()) {
+            Result res = DB_PROC.execute("CALL olab.security.fetchUserAuth('reader-1') YIELD value RETURN value");
             while (res.hasNext()){
                 Map<String,Object> map =res.next();
                 System.out.println(map.get("value"));
