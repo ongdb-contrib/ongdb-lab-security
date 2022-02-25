@@ -22,7 +22,7 @@ public interface ReaderProcFuncInter {
     /**
      * 通过分配给用户的QUERY ID执行查询语句
      * @param queryId:限制性只读用户可执行的查询ID【获取可执行查询ID：CALL olab.security.get() YIELD value RETURN value】
-     * @param paras:设置的参数
+     * @param params:设置的参数
      * @return
      * @Description: TODO
      */

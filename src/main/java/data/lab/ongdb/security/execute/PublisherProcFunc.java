@@ -63,7 +63,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
         JSONObject userAuth = UserAuthGet.auth(user, PUBLISHER_AUTH_JSON);
 
         // 对属性值进行检查：为用户设置权限时，对于值的类型也设置了`check`操作，在这里检查用户输入的值类型是否满足管理员限定的要求
-        // 对属性值的也进行判断：设置权限时可设置`validity`参数，表示对值进行验证，如果属性值包含在这个列表中则提示属性错误，通常使用在限制用户输入错误的值或限制用户不能设置特定的属性值
+        // 对属性值的也进行判断：设置权限时可设置`invalid_values`参数，表示对值进行验证，如果属性值包含在这个列表中则提示属性错误，通常使用在限制用户输入错误的值或限制用户不能设置特定的属性值
         mergeNodeParaCheck(userAuth, label, mergeField, mergeValue, otherPros);
 
         // 主要对用户权限进行检查
@@ -82,11 +82,12 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      **/
     @Override
     public void mergeNodeParaCheck(JSONObject userAuth, String label, String mergeField, Object mergeValue, Map<String, Object> otherPros) throws ParameterNotFoundException {
-        // 标签有效性检查
-        checkLabelOrType(label);
 
         // 属性的KEY、VALUE检查【VALUE值的标准配置类型检查】
         JSONObject nodeLabelObj = UserAuthGet.nodeLabelObject(userAuth, label);
+
+        // 标签有效性检查
+        checkLabelOrType(label, nodeLabelObj.getJSONArray("invalid_values"));
 
         if (nodeLabelObj.isEmpty()) {
             throw new ParameterNotFoundException("label permission not obtained!");
@@ -103,31 +104,35 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      */
     @Override
     public void mergeNodeAuthCheck(JSONObject userAuth, String label, String mergeField, Object mergeValue, Map<String, Object> otherPros) throws ParameterNotFoundException {
-        /**
-         * 执行merge节点操作时，用户至少拥有对节点`READER`权限
-         * **/
+
         // 获取标签的权限
         Operator labelOperator = UserAuthGet.labelOperator(userAuth, label);
-
-        if (labelOperator.getLevel().intValue() < 2) {
-            throw new ParameterNotFoundException("Insufficient permissions!");
-        }
-
-        if (labelOperator.equals(Operator.READER)) {
-            // 不能修改标签 -》继续判断对属性是否至少都有修改权限，再判断是否有新建属性权限
-            Map<String, Object> prosMap = new HashMap<String, Object>() {{
-                putAll(Objects.nonNull(otherPros) ? otherPros : Collections.emptyMap());
-                put(mergeField, mergeValue);
-            }};
+        Set<String> prosSet = Objects.isNull(otherPros) ? Collections.emptySet() : otherPros.keySet();
+        List<String> prosKey = new ArrayList<String>() {{
+            addAll(prosSet);
+            add(mergeField);
+        }};
 
 
-//            UserAuthGet.prosOperator(userAuth, label);
+        if (labelOperator.equals(Operator.READER_FORBID) || labelOperator.equals(Operator.READER)) {
+            // 不能读取标签 即 不能修改标签
+            // 需要编辑标签则报错【即对标签进行新增或者删除】
+            ifNotExistsLabelThenError(label);
+
+            // 任一属性不可编辑即报错
+            ifAnyProsNotCanEditorThenError(userAuth, label, prosKey);
+
+            // 是否需要新建属性，如果不存在新建权限则报错
+            ifNotCanBuildNewProsThenError(userAuth, label, prosKey);
 
         } else if (labelOperator.equals(Operator.EDITOR) || labelOperator.equals(Operator.PUBLISHER) ||
-                labelOperator.equals(Operator.DELETER_RESTRICT) || labelOperator.equals(Operator.DELETER)
-        ) {
+                labelOperator.equals(Operator.DELETER_RESTRICT) || labelOperator.equals(Operator.DELETER)) {
             // 可以新增或者删除标签
+            // 任一属性不可编辑即报错
+            ifAnyProsNotCanEditorThenError(userAuth, label, prosKey);
 
+            // 是否需要新建属性，如果不存在新建权限则报错
+            ifNotCanBuildNewProsThenError(userAuth, label, prosKey);
         }
     }
 
@@ -190,11 +195,12 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      **/
     @Override
     public void mergeRelationshipParaCheck(JSONObject userAuth, Long startId, Long endId, String mergeRelType, Map<String, Object> relPros) throws ParameterNotFoundException {
-        // 标签有效性检查
-        checkLabelOrType(mergeRelType);
 
         // 属性的KEY、VALUE检查【VALUE值的标准配置类型检查】
         JSONObject relTypeObj = UserAuthGet.relTypeObject(userAuth, "Person", "ACTED_IN", "Movie");
+
+        // 标签有效性检查
+        checkLabelOrType(mergeRelType, relTypeObj.getJSONArray("invalid_values"));
 
         checkFieldValue(relTypeObj.getJSONArray("properties"), new HashMap<String, Object>() {{
             putAll(relPros);
@@ -381,9 +387,11 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      **/
     @Override
     public void removeNodeLabelParaCheck(JSONObject userAuth, Long nodeId, String label) throws ParameterNotFoundException {
-        // 标签有效性检查
-        checkLabelOrType(label);
+        // 属性的KEY、VALUE检查【VALUE值的标准配置类型检查】
+        JSONObject relTypeObj = UserAuthGet.relTypeObject(userAuth, "Person", "ACTED_IN", "Movie");
 
+        // 标签有效性检查
+//        checkLabelOrType(mergeRelType,relTypeObj.getJSONArray("invalid_values"));
     }
 
     /**
@@ -449,8 +457,11 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      **/
     @Override
     public void addNodeLabelParaCheck(JSONObject userAuth, Long nodeId, String label) throws ParameterNotFoundException {
+        // 属性的KEY、VALUE检查【VALUE值的标准配置类型检查】
+        JSONObject nodeLabelObj = UserAuthGet.nodeLabelObject(userAuth, label);
+
         // 标签有效性检查
-        checkLabelOrType(label);
+        checkLabelOrType(label, nodeLabelObj.getJSONArray("invalid_values"));
 
     }
 
@@ -473,7 +484,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
             Object value = map.get(key);
             checkField(key);
             checkValue(value, getValueCheckType(properties, key));
-            checkValueValidity(value,getValueCheckValidity(properties, key));
+            checkValueValidity(value, getValueCheckValidity(properties, key));
         }
     }
 
@@ -496,7 +507,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      * @Description: TODO
      */
     private void checkValueValidity(Object value, JSONArray valueCheckValidity) {
-        if (valueCheckValidity.contains(value)){
+        if (Objects.nonNull(valueCheckValidity) && valueCheckValidity.contains(value)) {
             throw new ParameterNotFoundException("value validation failed!");
         }
     }
@@ -526,7 +537,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
                 })
                 .map(v -> (JSONObject) v)
                 .findFirst()
-                .orElse(new JSONObject()).getJSONArray("validity");
+                .orElse(new JSONObject()).getJSONArray("invalid_values");
     }
 
     /**
@@ -566,20 +577,122 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
     }
 
     /**
-     * 标签有效性检查
+     * 标签或关系类型有效性检查
      **/
-    private void checkLabel(List<String> otherLabels) throws ParameterNotFoundException {
-        otherLabels.forEach(
-                this::checkLabelOrType
-        );
+    private void checkLabelOrType(String labelOrType, JSONArray invalidValues) throws ParameterNotFoundException {
+        if (Objects.isNull(labelOrType) || "".equals(labelOrType)) {
+            throw new ParameterNotFoundException("label or type error!");
+        }
+        if (invalidValues.contains(labelOrType)) {
+            throw new ParameterNotFoundException("label or type error!");
+        }
     }
 
     /**
-     * 标签或关系类型有效性检查
+     * 是否需要新建属性，如果不存在新建权限则报错
+     *
+     * @param
+     * @return
+     * @Description: TODO
+     */
+    private void ifNotCanBuildNewProsThenError(JSONObject userAuth, String label,  List<String> prosKey) throws ParameterNotFoundException {
+        List<Map<String, Operator>> prosOperator = UserAuthGet.prosOperator(userAuth, label);
+        prosOperator.forEach(v -> {
+            // 需要新建
+            if (!needBuildNewPros(v)) {
+                // 有新建权限嘛，没有就报错
+                if (!hasBuildNewProsAuth(prosOperator, v)) {
+                    throw new ParameterNotFoundException("properties permission denied[New properties permission does not exist]!");
+                }
+            }
+        });
+    }
+
+    /**
+     * 属性是否有新建权限
      **/
-    private void checkLabelOrType(String labelOrType) throws ParameterNotFoundException {
-        if (Objects.isNull(labelOrType) || "".equals(labelOrType)) {
-            throw new ParameterNotFoundException("label or type error!");
+    private boolean hasBuildNewProsAuth(List<Map<String, Operator>> prosOperator, Map<String, Operator> v) {
+        Optional<Map<String, Operator>> operator = prosOperator.parallelStream()
+                .filter(f -> f.keySet().equals(v.keySet()))
+                .findFirst();
+
+        if (operator.isPresent()) {
+            return operator.get().values().iterator().next().getLevel().intValue() > 3;
+        } else {
+            throw new ParameterNotFoundException("properties permission denied[New properties permission does not exist]!");
+        }
+    }
+
+    /**
+     * 判断属性需不需要新建
+     **/
+    private boolean needBuildNewPros(Map<String, Operator> v) {
+        Map<String, Object> params = new HashMap<String, Object>() {{
+            put("value", v.keySet().iterator().next());
+        }};
+        return db.execute(ParaWrap.withParamMapping("CALL db.propertyKeys() YIELD propertyKey WHERE propertyKey=$value RETURN value", params.keySet()), params)
+                .stream()
+                .findFirst()
+                .isPresent();
+    }
+
+    /**
+     * 任一属性不可编辑即报错
+     *
+     * @param userAuth：用户的权限
+     * @param label:标签名
+     * @param keys:属性键
+     * @return
+     * @pa
+     * @Description: TODO
+     */
+    private void ifAnyProsNotCanEditorThenError(JSONObject userAuth, String label,  List<String> keys) throws ParameterNotFoundException {
+        List<Map<String, Operator>> prosOperator = UserAuthGet.prosOperator(userAuth, label);
+        // 过滤出不可编辑属性KEYS
+        boolean bool = keys.parallelStream()
+                .anyMatch(v -> !ifHasEditorAuth(prosOperator, v));
+        if (bool) {
+            throw new ParameterNotFoundException("properties permission denied[Properties are not editable]!");
+        }
+    }
+
+    /**
+     * 属性键是否有可编辑权限【True表示可以编辑】
+     *
+     * @param prosOperator:用户的属性权限
+     * @param key:属性KEY
+     * @return
+     * @Description: TODO
+     */
+    private boolean ifHasEditorAuth(List<Map<String, Operator>> prosOperator, String key) {
+        Optional<Operator> operator = prosOperator.parallelStream()
+                .filter(v -> v.containsKey(key))
+                .map(v -> v.get(key))
+                .findFirst();
+        if (operator.isPresent()) {
+            return operator.get().getLevel().intValue() > 2;
+        } else {
+            throw new ParameterNotFoundException("properties permission denied[Properties are not editable]!");
+        }
+    }
+
+    /**
+     * 需要编辑标签则报错【即对标签进行新增或者删除】
+     *
+     * @param label：标签名
+     * @return
+     * @Description: TODO
+     */
+    private void ifNotExistsLabelThenError(String label) throws ParameterNotFoundException {
+        Map<String, Object> params = new HashMap<String, Object>() {{
+            put("value", label);
+        }};
+        boolean bool = db.execute(ParaWrap.withParamMapping("CALL db.labels() YIELD label WHERE label=$value RETURN value", params.keySet()), params)
+                .stream()
+                .findFirst()
+                .isPresent();
+        if (!bool) {
+            throw new ParameterNotFoundException("label permission denied[No label editing permission]!");
         }
     }
 

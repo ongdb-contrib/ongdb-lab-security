@@ -10,7 +10,6 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import data.lab.ongdb.security.common.Operator;
 import data.lab.ongdb.security.common.Types;
-import data.lab.ongdb.security.common.UserAuthGet;
 import data.lab.ongdb.security.inter.AuthInter;
 import data.lab.ongdb.security.model.User;
 import data.lab.ongdb.security.result.ListResult;
@@ -99,6 +98,12 @@ public class Auth implements AuthInter {
                     }
                 }
 
+                if (!v.containsKey("invalid_values")) {
+                    throw new ParameterNotFoundException("relTypes:invalid_values not exists!" + "index:" + i);
+                } else if (!(v.get("invalid_values") instanceof List)) {
+                    throw new ParameterNotFoundException("relTypes:invalid_values [Set List] type error!" + "index:" + i);
+                }
+
                 if (!v.containsKey("properties")) {
                     throw new ParameterNotFoundException("relTypes:properties not exists!" + "index:" + i);
                 } else if (!(v.get("properties") instanceof List)) {
@@ -116,10 +121,10 @@ public class Auth implements AuthInter {
                                 operatorValueCheck(object.getString("operator"), "relTypes", i, j);
                             }
                         }
-                        if (!object.containsKey("validity")) {
-                            throw new ParameterNotFoundException("nodeLabels.properties:" + "validity" + " not exists!" + "index:" + i + ",properties_index:" + j);
-                        } else if (!(object.get("validity") instanceof List)) {
-                            throw new ParameterNotFoundException("nodeLabels.properties:" + "validity" + " [Set List] type error!" + "index:" + i + ",properties_index:" + j);
+                        if (!object.containsKey("invalid_values")) {
+                            throw new ParameterNotFoundException("nodeLabels.properties:" + "invalid_values" + " not exists!" + "index:" + i + ",properties_index:" + j);
+                        } else if (!(object.get("invalid_values") instanceof List)) {
+                            throw new ParameterNotFoundException("nodeLabels.properties:" + "invalid_values" + " [Set List] type error!" + "index:" + i + ",properties_index:" + j);
                         }
                     }
                 }
@@ -144,6 +149,12 @@ public class Auth implements AuthInter {
                     throw new ParameterNotFoundException("nodeLabels:label [Set String] type error!" + "index:" + i);
                 }
 
+                if (!v.containsKey("invalid_values")) {
+                    throw new ParameterNotFoundException("nodeLabels:invalid_values not exists!" + "index:" + i);
+                } else if (!(v.get("invalid_values") instanceof List)) {
+                    throw new ParameterNotFoundException("nodeLabels:invalid_values [Set List] type error!" + "index:" + i);
+                }
+
                 if (!v.containsKey("properties")) {
                     throw new ParameterNotFoundException("nodeLabels:properties not exists!" + "index:" + i);
                 } else if (!(v.get("properties") instanceof List)) {
@@ -161,10 +172,10 @@ public class Auth implements AuthInter {
                                 operatorValueCheck(object.getString("operator"), "nodeLabels", i, j);
                             }
                         }
-                        if (!object.containsKey("validity")) {
-                            throw new ParameterNotFoundException("nodeLabels.properties:" + "validity" + " not exists!" + "index:" + i + ",properties_index:" + j);
-                        } else if (!(object.get("validity") instanceof List)) {
-                            throw new ParameterNotFoundException("nodeLabels.properties:" + "validity" + " [Set List] type error!" + "index:" + i + ",properties_index:" + j);
+                        if (!object.containsKey("invalid_values")) {
+                            throw new ParameterNotFoundException("nodeLabels.properties:" + "invalid_values" + " not exists!" + "index:" + i + ",properties_index:" + j);
+                        } else if (!(object.get("invalid_values") instanceof List)) {
+                            throw new ParameterNotFoundException("nodeLabels.properties:" + "invalid_values" + " [Set List] type error!" + "index:" + i + ",properties_index:" + j);
                         }
                     }
                 }

@@ -41,7 +41,7 @@ public class PublisherProcFuncTest {
     @Test
     public void mergeNode() {
         try (Transaction tx = DB_PROC.beginTx()) {
-            Result res = DB_PROC.execute("CALL olab.security.publisher.merge.node('Person','name','001',{}) YIELD value RETURN value");
+            Result res = DB_PROC.execute("CALL olab.security.publisher.merge.node('Person','name','002',{}) YIELD value RETURN value");
             System.out.println(res.resultAsString());
         }
     }

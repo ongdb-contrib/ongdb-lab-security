@@ -5,8 +5,6 @@ package data.lab.ongdb.security.role;
  *
  */
 
-import org.neo4j.cypher.ParameterNotFoundException;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

@@ -126,6 +126,7 @@ public class FileUtil {
                             put("end_label", object.getString("end_label"));
                             put("properties", convertProsListMap(object.getJSONArray("properties")));
                             put("operator", object.getString("operator"));
+                            put("invalid_values", object.getJSONArray("invalid_values"));
                         }};
                     })
                     .collect(Collectors.toList());
@@ -133,16 +134,17 @@ public class FileUtil {
         return null;
     }
 
-    private static List<Map<String, String>> convertProsListMap(JSONArray properties) {
+    private static List<Map<String, Object>> convertProsListMap(JSONArray properties) {
         if (Objects.nonNull(properties)) {
             return properties
                     .parallelStream()
                     .map(v -> {
                         JSONObject object = (JSONObject) v;
-                        return new HashMap<String, String>() {{
+                        return new HashMap<String, Object>() {{
                             put("field", object.getString("field"));
                             put("operator", object.getString("operator"));
                             put("check", object.getString("check"));
+                            put("invalid_values", object.getJSONArray("invalid_values"));
                         }};
                     })
                     .collect(Collectors.toList());
@@ -160,6 +162,7 @@ public class FileUtil {
                             put("label", object.getString("label"));
                             put("properties", convertProsListMap(object.getJSONArray("properties")));
                             put("operator", object.getString("operator"));
+                            put("invalid_values", object.getJSONArray("invalid_values"));
                         }};
                     })
                     .collect(Collectors.toList());

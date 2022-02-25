@@ -9,8 +9,8 @@ import com.alibaba.fastjson.JSONObject;
 import data.lab.ongdb.security.util.FileUtil;
 import org.neo4j.cypher.ParameterNotFoundException;
 
-import java.util.Arrays;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author Yc-Ma
@@ -98,7 +98,38 @@ public class UserAuthGet {
      */
     public static Operator labelOperator(JSONObject userAuth, String label) throws ParameterNotFoundException {
         JSONObject object = nodeLabelObject(userAuth, label);
-        String oper = object.getString("operator");
+        return getOperator(object.getString("operator"));
+    }
+
+    /**
+     * 获取给用户指定的属性权限操作类型
+     *
+     * @param userAuth:过滤出的用户权限
+     * @param label:标签
+     * @return
+     * @Description: TODO
+     */
+    public static List<Map<String, Operator>> prosOperator(JSONObject userAuth, String label) throws ParameterNotFoundException {
+        return nodeLabelObject(userAuth, label)
+                .getJSONArray("properties")
+                .parallelStream()
+                .map(v -> {
+                    JSONObject object = (JSONObject) v;
+                    return new HashMap<String, Operator>() {{
+                        put(object.getString("field"), getOperator(object.getString("operator")));
+                    }};
+                }).collect(Collectors.toList());
+
+    }
+
+    /**
+     * 通过操作类型获取`Operator`枚举的操作算子
+     *
+     * @param oper:操作类型
+     * @return
+     * @Description: TODO
+     */
+    private static Operator getOperator(String oper) {
         Optional<Operator> operator = Arrays.asList(Operator.values())
                 .parallelStream()
                 .filter(v -> v.getOperate().equals(oper.toLowerCase()))
@@ -109,5 +140,6 @@ public class UserAuthGet {
             throw new ParameterNotFoundException("Get the operator type of the label permission specified for the user!");
         }
     }
+
 }
 
