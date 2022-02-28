@@ -70,7 +70,7 @@ CALL dbms.security.addRoleToUser('publisher_proc',user) RETURN user;
 ```
 
 ### 4、Operator操作权限说明
->&nbsp;&nbsp;&nbsp;&nbsp;`Operator`参数定义了对标签、关系、属性的操作权限的级别定义，使用`olab.security.setPublisher`过程为用户分配数据编辑权限。拥有创建指定数据的特殊权限账户，在创建数据时节点和关系会默认带有系统用户名字段`__system_users`和字段用户归属标记字段`__system_field_users`，存储为一个数组格式。在使用`DELETER_RESTRICT`权限时，会根据该字段来判断用户是否对数据拥有删除权限。
+>&nbsp;&nbsp;&nbsp;&nbsp;`Operator`参数定义了对标签、关系、属性的操作权限的级别定义，使用`olab.security.setPublisher`过程为用户分配数据编辑权限。拥有创建指定数据的特殊权限账户，在创建数据时节点和关系会默认带有系统用户名字段`__system_users`和字段用户归属标记字段`__system_field_users`，存储为一个数组格式，这两个字段主要使用JSON字符串保存数据创建人的信息。在使用`DELETER_RESTRICT`权限时，会根据该字段来判断用户是否对数据拥有删除权限。【该功能增加到To Do List】
 
 >&nbsp;&nbsp;&nbsp;&nbsp;权限下发机制，当节点拥有一个`PUBLISHER`权限时，用户可以对已有数据进行编辑修改并且可以创建新数据，对所属属性都可以执行`PUBLISHER`操作，但是无法删除。如果这时对节点的属性指定了一个`DELETER_RESTRICT`权限，那么用户则可以对自己创建的属性执行删除操作。如果对节点的属性指定了一个`DELETER`权限，则当前用户可以删除任何其它用户创建的属性数据。
 
@@ -80,7 +80,7 @@ CALL dbms.security.addRoleToUser('publisher_proc',user) RETURN user;
 |---|---|---|
 |1|READER_FORBID|禁止读取 |
 |2|READER|可以读取 |
-|3|EDITOR|对已有数据的编辑修改权限<br>【需要注意的是当用户对标签具有该权限时表示也可以新增删除标签】<br>【属性设置为该权限时只可修改属性值】 |
+|3|EDITOR|对已有数据的编辑修改权限<br>【需要注意的是当用户对标签或关系类型具有该权限时表示也可以新增删除标签或关系类型】<br>【属性设置为该权限时只可修改属性值】 |
 |4|PUBLISHER|对已有数据的编辑修改权限、拥有创建新数据权限|
 |5|DELETER_RESTRICT|对已有数据的编辑修改权限、拥有创建新数据权限、拥有删除数据权限<br>【仅允许删除用户自己创建的数据】<br>【当属性设置为该权限时，如果用户对节点或关系存在大于该级别的权限则属性也可以执行一样的权限级别】|
 |6|DELETER|对已有数据的编辑修改权限、拥有创建新数据权限、拥有删除数据权限|
@@ -99,7 +99,7 @@ CALL dbms.security.addRoleToUser('publisher_proc',user) RETURN user;
 >2. @param nodeLabels:可操作的标签列表【可为空】【追加】 label properties[<field,operator>] operator
 >3. @param relTypes:可操作的关系类型列表【可为空】【追加】 start_label type end_label properties[<field,operator[]>] operator
 ```
-CALL olab.security.setPublisher('publisher-1',[{label:'Person',invalid_values:['人物'],properties:[{field:'name',operator:'DELETER_RESTRICT',check:'STRING',invalid_values:['001','']}],operator:'EDITOR'}],[{start_label:'Person',type:'ACTED_IN',invalid_values:['参演'],end_label:'Movie',operator:'DELETER_RESTRICT',properties:[{field:'date',operator:'PUBLISHER',check:'LONG',invalid_values:['2021','']}]}]) YIELD username,currentRole,nodeLabels,relTypes RETURN username,currentRole,nodeLabels,relTypes
+CALL olab.security.setPublisher('publisher-1',[{label:'Person',invalid_values:['人物'],properties:[{field:'name',operator:'DELETER_RESTRICT',check:'STRING',invalid_values:['001','']}],operator:'EDITOR'},{label:'Movie',invalid_values:['电影'],properties:[{field:'name',operator:'DELETER_RESTRICT',check:'STRING',invalid_values:['001','']}],operator:'EDITOR'}],[{start_label:'Person',type:'ACTED_IN',invalid_values:['参演'],end_label:'Movie',operator:'DELETER_RESTRICT',properties:[{field:'date',operator:'PUBLISHER',check:'INTEGER',invalid_values:['2021','']}]}]) YIELD username,currentRole,nodeLabels,relTypes RETURN username,currentRole,nodeLabels,relTypes
 ```
 
 - 为`Reader-1`配置权限
@@ -134,6 +134,7 @@ CALL olab.security.list() YIELD value RETURN value
 - 1.查看拥有的权限
 ```
 CALL olab.security.get() YIELD value RETURN value
+// 对照权限定义
 CALL olab.security.getAuth() YIELD operate,level,description RETURN operate,level,description
 ```
 

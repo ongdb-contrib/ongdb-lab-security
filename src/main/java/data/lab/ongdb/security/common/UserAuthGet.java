@@ -5,6 +5,7 @@ package data.lab.ongdb.security.common;
  *
  */
 
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import data.lab.ongdb.security.util.FileUtil;
 import org.neo4j.cypher.ParameterNotFoundException;
@@ -52,8 +53,11 @@ public class UserAuthGet {
      * @return
      * @Description: TODO
      */
-    public static JSONObject nodeLabelObject(JSONObject userAuth, String label) {
-        return userAuth.getJSONArray("nodeLabels")
+    public static JSONObject nodeLabelObject(JSONObject userAuth, String label) throws ParameterNotFoundException {
+        if (Objects.isNull(label)) {
+            throw new ParameterNotFoundException("Get user's label permission exception[label exception]!");
+        }
+        JSONObject obj = userAuth.getJSONArray("nodeLabels")
                 .parallelStream()
                 .filter(v -> {
                     JSONObject object = (JSONObject) v;
@@ -62,6 +66,11 @@ public class UserAuthGet {
                 .map(v -> (JSONObject) v)
                 .findFirst()
                 .orElse(new JSONObject());
+        if (!obj.isEmpty()) {
+            return obj;
+        } else {
+            throw new ParameterNotFoundException("Get user's label permission exception!");
+        }
     }
 
     /**
@@ -74,18 +83,32 @@ public class UserAuthGet {
      * @return
      * @Description: TODO
      */
-    public static JSONObject relTypeObject(JSONObject userAuth, String startLabel, String relationshipType, String endLabel) {
-        return userAuth.getJSONArray("relTypes")
+    public static JSONObject relTypeObject(JSONObject userAuth, List<String> startLabel, String relationshipType, List<String> endLabel) throws ParameterNotFoundException {
+        if (Objects.isNull(startLabel) || startLabel.isEmpty()) {
+            throw new ParameterNotFoundException("Get user's relationshipType permission exception[start-labels exception]!");
+        }
+        if (Objects.isNull(endLabel) || endLabel.isEmpty()) {
+            throw new ParameterNotFoundException("Get user's relationshipType permission exception[end-labels exception]!");
+        }
+        if (Objects.isNull(relationshipType)) {
+            throw new ParameterNotFoundException("Get user's relationshipType permission exception[relationshipType exception]!");
+        }
+        JSONObject obj = userAuth.getJSONArray("relTypes")
                 .parallelStream()
                 .filter(v -> {
                     JSONObject object = (JSONObject) v;
-                    return startLabel.equals(object.get("start_label")) &&
+                    return startLabel.contains(object.getString("start_label")) &&
                             relationshipType.equals(object.get("type")) &&
-                            endLabel.equals(object.get("end_label"));
+                            endLabel.contains(object.getString("end_label"));
                 })
                 .map(v -> (JSONObject) v)
                 .findFirst()
                 .orElse(new JSONObject());
+        if (!obj.isEmpty()) {
+            return obj;
+        } else {
+            throw new ParameterNotFoundException("Get user's relationshipType permission exception!");
+        }
     }
 
     /**
@@ -98,7 +121,11 @@ public class UserAuthGet {
      */
     public static Operator labelOperator(JSONObject userAuth, String label) throws ParameterNotFoundException {
         JSONObject object = nodeLabelObject(userAuth, label);
-        return getOperator(object.getString("operator"));
+        if (!object.isEmpty()) {
+            return getOperator(object.getString("operator"));
+        } else {
+            throw new ParameterNotFoundException("Get operator of label[" + label + "] exception!");
+        }
     }
 
     /**
@@ -115,9 +142,13 @@ public class UserAuthGet {
                 .parallelStream()
                 .map(v -> {
                     JSONObject object = (JSONObject) v;
-                    return new HashMap<String, Operator>() {{
-                        put(object.getString("field"), getOperator(object.getString("operator")));
-                    }};
+                    if (!object.isEmpty()) {
+                        return new HashMap<String, Operator>() {{
+                            put(object.getString("field"), getOperator(object.getString("operator")));
+                        }};
+                    } else {
+                        throw new ParameterNotFoundException("Get operator of properties exception!");
+                    }
                 }).collect(Collectors.toList());
 
     }
@@ -130,16 +161,111 @@ public class UserAuthGet {
      * @Description: TODO
      */
     private static Operator getOperator(String oper) {
-        Optional<Operator> operator = Arrays.asList(Operator.values())
-                .parallelStream()
-                .filter(v -> v.getOperate().equals(oper.toLowerCase()))
-                .findFirst();
-        if (operator.isPresent()) {
-            return operator.get();
+        if (Objects.nonNull(oper)) {
+            Optional<Operator> operator = Arrays.asList(Operator.values())
+                    .parallelStream()
+                    .filter(v -> v.getOperate().equals(oper.toLowerCase()))
+                    .findFirst();
+            if (operator.isPresent()) {
+                return operator.get();
+            } else {
+                throw new ParameterNotFoundException("Get operator exception!");
+            }
         } else {
-            throw new ParameterNotFoundException("Get the operator type of the label permission specified for the user!");
+            throw new ParameterNotFoundException("Get operator exception!");
         }
     }
 
+    /**
+     * 从用户权限中获取，每个标签在某一个指定KEY上的权限
+     *
+     * @param userAuth:用户权限
+     * @param labels:标签列表
+     * @param key:属性KEY
+     * @return
+     * @Description: TODO
+     */
+    public static List<Operator> prosKeyOperator(JSONObject userAuth, List<String> labels, String key) {
+        List<Operator> operatorList = new ArrayList<>();
+        labels.parallelStream()
+                .forEach(label -> {
+                            Optional<Map<String, Operator>> operatorMap = prosOperator(userAuth, label).parallelStream()
+                                    .filter(v -> v.containsKey(key))
+                                    .findFirst();
+                            if (operatorMap.isPresent()) {
+                                operatorList.add(operatorMap.get().get(key));
+                            } else {
+                                throw new ParameterNotFoundException("Get operator of properties-key[" + key + "] exception!");
+                            }
+                        }
+                );
+        return operatorList;
+    }
+
+    /**
+     * 获取关系类型的权限
+     *
+     * @param
+     * @return
+     * @Description: TODO
+     */
+    public static Operator typeOperator(JSONObject userAuth, List<String> startLabels, String mergeRelType, List<String> endLabels) {
+        JSONObject object = relTypeObject(userAuth, startLabels, mergeRelType, endLabels);
+        if (!object.isEmpty()) {
+            return getOperator(object.getString("operator"));
+        } else {
+            throw new ParameterNotFoundException("Get operator of relationshipType[" + mergeRelType + "] exception!");
+        }
+    }
+
+    /**
+     * 从节点或者关系对象中获取属性操作权限的封装
+     *
+     * @param jsonObject:标签或者关系的对象
+     * @return
+     * @Description: TODO
+     */
+    public static List<Map<String, Operator>> getProsOperator(JSONObject jsonObject) {
+        return jsonObject
+                .getJSONArray("properties")
+                .parallelStream()
+                .map(v -> {
+                    JSONObject object = (JSONObject) v;
+                    if (!object.isEmpty()) {
+                        return new HashMap<String, Operator>() {{
+                            put(object.getString("field"), getOperator(object.getString("operator")));
+                        }};
+                    } else {
+                        throw new ParameterNotFoundException("Get operator of properties exception!");
+                    }
+                }).collect(Collectors.toList());
+    }
+
+    /**
+     * 判断用户在标签上是否有权限
+     *
+     * @param
+     * @return
+     * @Description: TODO
+     */
+    public static boolean isContainslabelOperator(JSONObject userAuth, String label) {
+        JSONArray obj = userAuth.getJSONArray("nodeLabels");
+        if (!obj.isEmpty()) {
+            return obj.parallelStream()
+                    .filter(v -> {
+                        JSONObject object = (JSONObject) v;
+                        return object.getString("label").equals(label);
+                    })
+                    .map(v -> {
+                        JSONObject object = (JSONObject) v;
+                        return object.getString("label");
+                    })
+                    .collect(Collectors.toList())
+                    .contains(label);
+        } else {
+            return false;
+        }
+    }
 }
+
 

@@ -61,11 +61,6 @@ public interface PublisherProcFuncInter {
     Stream<MapResult> deleteNode(Long nodeId);
 
     /**
-     * 分用户检查入参
-     **/
-    void deleteNodeParaCheck(JSONObject userAuth, Long nodeId) throws ParameterNotFoundException;
-
-    /**
      * 分用户权限检查
      **/
     void deleteNodeAuthCheck(JSONObject userAuth, Long nodeId) throws ParameterNotFoundException;
@@ -100,11 +95,6 @@ public interface PublisherProcFuncInter {
      * @Description: TODO
      */
     Stream<MapResult> deleteRelationship(Long relId);
-
-    /**
-     * 分用户检查入参
-     **/
-    void deleteRelationshipParaCheck(JSONObject userAuth, Long relId) throws ParameterNotFoundException;
 
     /**
      * 分用户权限检查
