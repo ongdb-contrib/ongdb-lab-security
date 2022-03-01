@@ -70,7 +70,7 @@ CALL dbms.security.addRoleToUser('publisher_proc',user) RETURN user;
 ```
 
 ### 4、Operator操作权限说明
->&nbsp;&nbsp;&nbsp;&nbsp;`Operator`参数定义了对标签、关系、属性的操作权限的级别定义，使用`olab.security.setPublisher`过程为用户分配数据编辑权限。拥有创建指定数据的特殊权限账户，在创建数据时节点和关系会默认带有系统用户名字段`__system_users`和字段用户归属标记字段`__system_field_users`，存储为一个数组格式，这两个字段主要使用JSON字符串保存数据创建人的信息。在使用`DELETER_RESTRICT`权限时，会根据该字段来判断用户是否对数据拥有删除权限。【该功能增加到To Do List】
+>&nbsp;&nbsp;&nbsp;&nbsp;`Operator`参数定义了对标签、关系、属性的操作权限的级别定义，使用`olab.security.setPublisher`过程为用户分配数据编辑权限。拥有创建指定数据的特殊权限账户，在创建数据时节点和关系会默认带有系统用户名字段`__system_users`和字段用户归属标记字段`__system_field_users`，存储为一个数组格式，这两个字段主要使用JSON字符串保存数据创建人的信息。在使用`DELETER_RESTRICT`权限时，会根据该字段来判断用户是否对数据拥有删除权限。【该功能和`READER_FORBID`操作类型一起增加到To Do List】
 
 >&nbsp;&nbsp;&nbsp;&nbsp;权限下发机制，当节点拥有一个`PUBLISHER`权限时，用户可以对已有数据进行编辑修改并且可以创建新数据，对所属属性都可以执行`PUBLISHER`操作，但是无法删除。如果这时对节点的属性指定了一个`DELETER_RESTRICT`权限，那么用户则可以对自己创建的属性执行删除操作。如果对节点的属性指定了一个`DELETER`权限，则当前用户可以删除任何其它用户创建的属性数据。
 

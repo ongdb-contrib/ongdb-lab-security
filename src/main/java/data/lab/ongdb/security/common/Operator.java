@@ -71,6 +71,19 @@ public enum Operator {
         this.description = description;
     }
 
+    public static Operator from(String operator) {
+        if (operator == null) {
+            return READER;
+        }
+        operator = operator.toUpperCase();
+        for (Operator oper : values()) {
+            if (oper.name().startsWith(operator)) {
+                return oper;
+            }
+        }
+        return READER;
+    }
+
     public String getOperate() {
         return operate;
     }

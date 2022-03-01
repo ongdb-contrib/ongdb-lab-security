@@ -169,10 +169,10 @@ public class UserAuthGet {
             if (operator.isPresent()) {
                 return operator.get();
             } else {
-                throw new ParameterNotFoundException("Get operator exception!");
+                throw new ParameterNotFoundException("Get operator permission exception!");
             }
         } else {
-            throw new ParameterNotFoundException("Get operator exception!");
+            throw new ParameterNotFoundException("Get operator permission exception!");
         }
     }
 
@@ -203,6 +203,57 @@ public class UserAuthGet {
     }
 
     /**
+     * 从已经过滤的用户权限中获取，关系类型在KEYS上的权限
+     *
+     * @param object:标签列表
+     * @param keys:属性KEYS
+     * @return
+     * @Description: TODO
+     */
+    public static List<Operator> prosKeyOperator(JSONObject object, Set<String> keys) {
+        List<Map<String, Operator>> prosOperator = UserAuthGet.getProsOperator(object);
+        if (Objects.nonNull(prosOperator) && Objects.nonNull(keys)) {
+            return keys.parallelStream()
+                    .map(v -> getOperator(prosOperator, v))
+                    .collect(Collectors.toList());
+        } else {
+            throw new ParameterNotFoundException("Get operator of properties exception!");
+        }
+    }
+
+    /**
+     * 从列表中获取指定KEY的Operator
+     *
+     * @param prosOperator:属性值与Operator映射列表
+     * @param key:属性键
+     * @return
+     * @Description: TODO
+     */
+    private static Operator getOperator(List<Map<String, Operator>> prosOperator, String key) {
+        if (Objects.nonNull(key) && Objects.nonNull(prosOperator)) {
+            Optional<Operator> operator = prosOperator
+                    .parallelStream()
+                    .filter(v -> v.containsKey(key)).map(v -> {
+                                Optional<Operator> optionalOperator = v.values().parallelStream().findFirst();
+                                if (optionalOperator.isPresent()) {
+                                    return optionalOperator.get();
+                                } else {
+                                    throw new ParameterNotFoundException("Get operator permission exception!");
+                                }
+                            }
+                    )
+                    .findFirst();
+            if (operator.isPresent()) {
+                return operator.get();
+            } else {
+                throw new ParameterNotFoundException("Get operator permission exception!");
+            }
+        } else {
+            throw new ParameterNotFoundException("Get operator permission exception!");
+        }
+    }
+
+    /**
      * 获取关系类型的权限
      *
      * @param
@@ -226,19 +277,23 @@ public class UserAuthGet {
      * @Description: TODO
      */
     public static List<Map<String, Operator>> getProsOperator(JSONObject jsonObject) {
-        return jsonObject
-                .getJSONArray("properties")
-                .parallelStream()
-                .map(v -> {
-                    JSONObject object = (JSONObject) v;
-                    if (!object.isEmpty()) {
-                        return new HashMap<String, Operator>() {{
-                            put(object.getString("field"), getOperator(object.getString("operator")));
-                        }};
-                    } else {
-                        throw new ParameterNotFoundException("Get operator of properties exception!");
-                    }
-                }).collect(Collectors.toList());
+        if (Objects.nonNull(jsonObject)) {
+            return jsonObject
+                    .getJSONArray("properties")
+                    .parallelStream()
+                    .map(v -> {
+                        JSONObject object = (JSONObject) v;
+                        if (!object.isEmpty()) {
+                            return new HashMap<String, Operator>() {{
+                                put(object.getString("field"), getOperator(object.getString("operator")));
+                            }};
+                        } else {
+                            throw new ParameterNotFoundException("Get operator of properties exception!");
+                        }
+                    }).collect(Collectors.toList());
+        } else {
+            throw new ParameterNotFoundException("Get operator of properties exception!");
+        }
     }
 
     /**

@@ -57,7 +57,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      */
     @Override
     @Procedure(name = "olab.security.publisher.merge.node", mode = WRITE)
-    @Description("CALL olab.security.publisher.merge.node({label},{merge_field},{merge_value},{[other_pros]},{[other_labels]}) YIELD node RETURN node")
+    @Description("CALL olab.security.publisher.merge.node({label},{merge_field},{merge_value},{[other_pros]},{[other_labels]}) YIELD value RETURN value")
     public Stream<MapResult> mergeNode(@Name("label") String label, @Name("mergeField") String mergeField, @Name("mergeValue") Object mergeValue, @Name("otherPros") Map<String, Object> otherPros) {
 
         String user = securityContext.subject().username();
@@ -91,7 +91,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
         checkLabelOrType(label, nodeLabelObj.getJSONArray("invalid_values"));
 
         if (nodeLabelObj.isEmpty()) {
-            throw new ParameterNotFoundException("label permission not obtained!");
+            throw new ParameterNotFoundException("label permission not obtained[" + label + "]!");
         }
 
         checkFieldValue(nodeLabelObj.getJSONArray("properties"), new HashMap<String, Object>() {{
@@ -182,7 +182,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
                 labels.forEach(label -> {
                     Operator operator = UserAuthGet.labelOperator(userAuth, label);
                     if (operator.getLevel().intValue() < 5) {
-                        throw new ParameterNotFoundException("label permission denied[No label deletion permission]!");
+                        throw new ParameterNotFoundException("label permission denied[No label deletion permission][" + operator.getOperate().toUpperCase() + "]!");
                     }
                 });
             } else {
@@ -196,13 +196,13 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
                     // 遍历操作权限，任一不满足删除权限则报错
                     operators.forEach(operator -> {
                         if (operator.getLevel().intValue() < 5) {
-                            throw new ParameterNotFoundException("properties-key permission denied[No properties-key deletion permission]!");
+                            throw new ParameterNotFoundException("properties-key permission denied[No properties-key deletion permission][" + operator.getOperate().toUpperCase() + "]!");
                         }
                     });
                 });
-            } else {
-                throw new ParameterNotFoundException("properties-key permission denied[No properties-key deletion permission][properties is null]!");
             }
+        } else {
+            throw new ParameterNotFoundException("permissions cannot be judged!");
         }
     }
 
@@ -228,7 +228,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
         // 权限检查
         mergeRelationshipAuthCheck(userAuth, startId, endId, mergeRelType, relPros);
 
-        String query = "MATCH (from),(to) WHERE ID(from)=$fromId AND ID(to)=$toId WITH from,to MERGE p=(from)-[r:"+mergeRelType+"]-(to) SET r+=$relPros RETURN ID(r) AS rel_id";
+        String query = "MATCH (from),(to) WHERE ID(from)=$fromId AND ID(to)=$toId WITH from,to MERGE p=(from)-[r:" + mergeRelType + "]-(to) SET r+=$relPros RETURN ID(r) AS rel_id";
         Map<String, Object> params = new HashMap<String, Object>() {{
             put("fromId", startId);
             put("toId", endId);
@@ -273,7 +273,14 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
             List<String> labels = (List<String>) value.get("labels");
             if (!labels.isEmpty()) {
                 return labels.parallelStream()
-                        .filter(label -> UserAuthGet.isContainslabelOperator(userAuth, label))
+                        .filter(label -> {
+                            boolean bool = UserAuthGet.isContainslabelOperator(userAuth, label);
+                            if (bool) {
+                                return bool;
+                            } else {
+                                throw new ParameterNotFoundException("node has " + labels.size() + " labels but this label `" + label + "` has no permission!");
+                            }
+                        })
                         .collect(Collectors.toList());
             } else {
                 throw new ParameterNotFoundException("label permission denied[No label deletion permission][label is null]!");
@@ -335,8 +342,14 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
         String user = securityContext.subject().username();
         JSONObject userAuth = UserAuthGet.auth(user, PUBLISHER_AUTH_JSON);
 
+        // 检查用户是否有删除节点的权限：用户可以删除节点时即拥有对应节点的全部标签删除权限、全部属性删除权限
         deleteRelationshipAuthCheck(userAuth, relId);
-        return Stream.of(MapResult.empty());
+
+        String query = "MATCH ()-[r]->() WHERE ID(r)=$id DELETE r  RETURN 'delete relationship " + relId + " succeeded!' AS message";
+        Map<String, Object> params = new HashMap<String, Object>() {{
+            put("id", relId);
+        }};
+        return execute(query, params);
     }
 
     /**
@@ -344,7 +357,31 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      */
     @Override
     public void deleteRelationshipAuthCheck(JSONObject userAuth, Long relId) throws ParameterNotFoundException {
-
+        // 检查用户是否有删除关系的权限：用户可以删除关系时即拥有对应关系类型删除权限、必须拥有全部属性删除权限
+        // 获取关系信息
+        Optional<MapResult> result = typeInfo(relId);
+        if (result.isPresent()) {
+            MapResult mapResult = result.get();
+            Map<String, Object> value = mapResult.value;
+            List<String> startLabels = (List<String>) value.get("start_labels");
+            String type = (String) value.get("type");
+            List<String> endLabels = (List<String>) value.get("end_labels");
+            Map<String, Object> pros = (Map<String, Object>) value.get("pros");
+            // 过滤出来的关系的权限
+            JSONObject object = UserAuthGet.relTypeObject(userAuth, startLabels, type, endLabels);
+            if (!object.isEmpty()) {
+                // 检查关系权限
+                Operator operator = Operator.from(object.getString("operator"));
+                if (operator.getLevel().intValue() < 5) {
+                    throw new ParameterNotFoundException("relationshipType permission denied[No relationshipType deletion permission][" + operator.getOperate().toUpperCase() + "]!");
+                }
+                prosAuthLevelJudge(object, pros.keySet(), 5, "deletion");
+            } else {
+                throw new ParameterNotFoundException("relationshipType permission denied[No relationshipType deletion permission][relationshipType is null]!");
+            }
+        } else {
+            throw new ParameterNotFoundException("permissions cannot be judged!");
+        }
     }
 
     /**
@@ -358,12 +395,23 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      */
     @Override
     @Procedure(name = "olab.security.publisher.update.node", mode = WRITE)
-    @Description("CALL olab.security.publisher.update.node({node_id},{field_name},{field_value}) YIELD node RETURN node")
+    @Description("CALL olab.security.publisher.update.node({node_id},{field_name},{field_value}) YIELD value RETURN value")
     public Stream<MapResult> updateNode(@Name("nodeId") Long nodeId, @Name("fieldName") String fieldName, @Name("fieldValue") Object fieldValue) {
         String user = securityContext.subject().username();
         JSONObject userAuth = UserAuthGet.auth(user, PUBLISHER_AUTH_JSON);
+        // 参数检查
         updateNodeParaCheck(userAuth, nodeId, fieldName, fieldValue);
-        return Stream.of(MapResult.empty());
+        // 权限检查
+        updateNodeAuthCheck(userAuth, nodeId, fieldName, fieldValue);
+
+        String query = "MATCH (n) WHERE ID(n)=$id SET n+=$pros RETURN ID(n) AS node_id";
+        Map<String, Object> params = new HashMap<String, Object>() {{
+            put("id", nodeId);
+            put("pros", new HashMap<String, Object>() {{
+                put(fieldName, fieldValue);
+            }});
+        }};
+        return execute(query, params);
     }
 
     /**
@@ -371,22 +419,41 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      **/
     @Override
     public void updateNodeParaCheck(JSONObject userAuth, Long nodeId, String fieldName, Object fieldValue) throws ParameterNotFoundException {
-        // 属性的KEY、VALUE检查【VALUE值的标准配置类型检查】
-//        JSONObject nodeLabelObj = UserAuthGet.nodeLabelObject(userAuth, label);
-//
-//        checkFieldValue(nodeLabelObj.getJSONArray("properties"), new HashMap<String, Object>() {{
-//            putAll(otherPros);
-//            put(mergeField, mergeValue);
-//        }});
+        List<String> labels = labels(userAuth, nodeId);
+        for (String label : labels) {
+            // 属性的KEY、VALUE检查【VALUE值的标准配置类型检查】
+            JSONObject nodeLabelObj = UserAuthGet.nodeLabelObject(userAuth, label);
 
+            // 标签有效性检查
+            checkLabelOrType(label, nodeLabelObj.getJSONArray("invalid_values"));
+
+            if (nodeLabelObj.isEmpty()) {
+                throw new ParameterNotFoundException("label permission not obtained[" + label + "]!");
+            }
+
+            checkFieldValue(nodeLabelObj.getJSONArray("properties"), new HashMap<String, Object>() {{
+                putAll(Collections.emptyMap());
+                put(fieldName, fieldValue);
+            }});
+        }
     }
 
     /**
      * 分用户权限检查
+     * 需要在每个标签上都有该权限才行
      */
     @Override
     public void updateNodeAuthCheck(JSONObject userAuth, Long nodeId, String fieldName, Object fieldValue) throws ParameterNotFoundException {
-
+        // 判断在字段上是否存在更新权限
+        List<String> labels = labels(userAuth, nodeId);
+        // 获取标签下指定属性KEY的所有操作权限
+        List<Operator> operators = UserAuthGet.prosKeyOperator(userAuth, labels, fieldName);
+        // 遍历操作权限，任一不满足删除权限则报错
+        operators.forEach(operator -> {
+            if (operator.getLevel().intValue() < 3) {
+                throw new ParameterNotFoundException("properties-key permission denied[No properties-key update permission][" + operator.getOperate().toUpperCase() + "]!");
+            }
+        });
     }
 
     /**
@@ -404,8 +471,19 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
     public Stream<MapResult> updateRelationship(@Name("relId") Long relId, @Name("fieldName") String fieldName, @Name("fieldValue") Object fieldValue) {
         String user = securityContext.subject().username();
         JSONObject userAuth = UserAuthGet.auth(user, PUBLISHER_AUTH_JSON);
+        // 参数检查
         updateRelationshipParaCheck(userAuth, relId, fieldName, fieldValue);
-        return Stream.of(MapResult.empty());
+        // 权限检查
+        updateRelationshipAuthCheck(userAuth, relId, fieldName, fieldValue);
+
+        String query = "MATCH ()-[r]->() WHERE ID(r)=$id SET r+=$pros RETURN ID(r) AS rel_id";
+        Map<String, Object> params = new HashMap<String, Object>() {{
+            put("id", relId);
+            put("pros", new HashMap<String, Object>() {{
+                put(fieldName, fieldValue);
+            }});
+        }};
+        return execute(query, params);
     }
 
     /**
@@ -413,11 +491,27 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      **/
     @Override
     public void updateRelationshipParaCheck(JSONObject userAuth, Long relId, String fieldName, Object fieldValue) throws ParameterNotFoundException {
-        // 字段有效性检查
-        checkField(fieldName);
-
-        // 值有效性检查
-        checkValue(fieldValue);
+        // 对字段入参进行检查
+        Optional<MapResult> result = typeInfo(relId);
+        if (result.isPresent()) {
+            MapResult mapResult = result.get();
+            Map<String, Object> value = mapResult.value;
+            List<String> startLabels = (List<String>) value.get("start_labels");
+            String type = (String) value.get("type");
+            List<String> endLabels = (List<String>) value.get("end_labels");
+            // 过滤出来的关系的权限
+            JSONObject object = UserAuthGet.relTypeObject(userAuth, startLabels, type, endLabels);
+            if (!object.isEmpty()) {
+                checkFieldValue(object.getJSONArray("properties"), new HashMap<String, Object>() {{
+                    putAll(Collections.emptyMap());
+                    put(fieldName, fieldValue);
+                }});
+            } else {
+                throw new ParameterNotFoundException("relationshipType permission denied[No relationshipType deletion permission][relationshipType is null]!");
+            }
+        } else {
+            throw new ParameterNotFoundException("permissions cannot be judged!");
+        }
     }
 
     /**
@@ -425,7 +519,41 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      */
     @Override
     public void updateRelationshipAuthCheck(JSONObject userAuth, Long relId, String fieldName, Object fieldValue) throws ParameterNotFoundException {
-
+        // 检查用户是否有删除关系的权限：用户可以删除关系时即拥有对应关系类型删除权限、必须拥有全部属性删除权限
+        // 获取关系信息
+        Optional<MapResult> result = typeInfo(relId);
+        if (result.isPresent()) {
+            MapResult mapResult = result.get();
+            Map<String, Object> value = mapResult.value;
+            List<String> startLabels = (List<String>) value.get("start_labels");
+            String type = (String) value.get("type");
+            List<String> endLabels = (List<String>) value.get("end_labels");
+            Map<String, Object> pros = (Map<String, Object>) value.get("pros");
+            // 过滤出来的关系的权限
+            JSONObject object = UserAuthGet.relTypeObject(userAuth, startLabels, type, endLabels);
+            if (!object.isEmpty()) {
+                // 检查关系权限
+                Operator operator = Operator.from(object.getString("operator"));
+                if (operator.getLevel().intValue() < 3) {
+                    throw new ParameterNotFoundException("relationshipType permission denied[No relationshipType deletion permission][" + operator.getOperate().toUpperCase() + "]!");
+                }
+            } else {
+                throw new ParameterNotFoundException("relationshipType permission denied[No relationshipType deletion permission][relationshipType is null]!");
+            }
+            if (!pros.isEmpty()) {
+                // 检查属性权限
+                // 获取标签下指定属性KEY的所有操作权限
+                List<Operator> operators = UserAuthGet.prosKeyOperator(object, pros.keySet());
+                // 遍历操作权限，任一不满足删除权限则报错
+                operators.forEach(operator -> {
+                    if (operator.getLevel().intValue() < 3) {
+                        throw new ParameterNotFoundException("properties-key permission denied[No properties-key deletion permission][" + operator.getOperate().toUpperCase() + "]!");
+                    }
+                });
+            }
+        } else {
+            throw new ParameterNotFoundException("permissions cannot be judged!");
+        }
     }
 
     /**
@@ -436,12 +564,21 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      */
     @Override
     @Procedure(name = "olab.security.publisher.remove.node.key", mode = WRITE)
-    @Description("CALL olab.security.publisher.remove.node.key({node_id},{field_name}) YIELD node RETURN node")
+    @Description("CALL olab.security.publisher.remove.node.key({node_id},{field_name}) YIELD value RETURN value")
     public Stream<MapResult> removeNodeKey(@Name("nodeId") Long nodeId, @Name("fieldName") String fieldName) {
         String user = securityContext.subject().username();
         JSONObject userAuth = UserAuthGet.auth(user, PUBLISHER_AUTH_JSON);
+
+        // 参数检查
         removeNodeKeyParaCheck(userAuth, nodeId, fieldName);
-        return Stream.of(MapResult.empty());
+        // 权限检查
+        removeNodeKeyAuthCheck(userAuth, nodeId, fieldName);
+
+        String query = "MATCH (n) WHERE ID(n)=$id REMOVE n." + fieldName + " RETURN 'delete node " + nodeId + " properties-key succeeded!' AS message";
+        Map<String, Object> params = new HashMap<String, Object>() {{
+            put("id", nodeId);
+        }};
+        return execute(query, params);
     }
 
     /**
@@ -449,9 +586,16 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      **/
     @Override
     public void removeNodeKeyParaCheck(JSONObject userAuth, Long nodeId, String fieldName) throws ParameterNotFoundException {
-        // 字段有效性检查
-        checkField(fieldName);
+        List<String> labels = labels(userAuth, nodeId);
+        for (String label : labels) {
+            // 属性的KEY、VALUE检查【VALUE值的标准配置类型检查】
+            JSONObject nodeLabelObj = UserAuthGet.nodeLabelObject(userAuth, label);
 
+            if (nodeLabelObj.isEmpty()) {
+                throw new ParameterNotFoundException("label permission not obtained[" + label + "]!");
+            }
+            checkField(fieldName);
+        }
     }
 
     /**
@@ -459,7 +603,16 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      */
     @Override
     public void removeNodeKeyAuthCheck(JSONObject userAuth, Long nodeId, String fieldName) throws ParameterNotFoundException {
-
+        // 判断在字段上是否存在更新权限
+        List<String> labels = labels(userAuth, nodeId);
+        // 获取标签下指定属性KEY的所有操作权限
+        List<Operator> operators = UserAuthGet.prosKeyOperator(userAuth, labels, fieldName);
+        // 遍历操作权限，任一不满足删除权限则报错
+        operators.forEach(operator -> {
+            if (operator.getLevel().intValue() < 5) {
+                throw new ParameterNotFoundException("properties-key permission denied[No properties-key deletion permission][" + operator.getOperate().toUpperCase() + "]!");
+            }
+        });
     }
 
     /**
@@ -472,32 +625,50 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      */
     @Override
     @Procedure(name = "olab.security.publisher.remove.node.label", mode = WRITE)
-    @Description("CALL olab.security.publisher.remove.node.label({node_id},{label}) YIELD node RETURN node")
+    @Description("CALL olab.security.publisher.remove.node.label({node_id},{label}) YIELD value RETURN value")
     public Stream<MapResult> removeNodeLabel(@Name("nodeId") Long nodeId, @Name("label") String label) {
         String user = securityContext.subject().username();
         JSONObject userAuth = UserAuthGet.auth(user, PUBLISHER_AUTH_JSON);
-        removeNodeLabelParaCheck(userAuth, nodeId, label);
-        return Stream.of(MapResult.empty());
+
+        // 参数检查
+        removeNodeLabelParaCheck(userAuth, label);
+        // 权限检查
+        removeNodeLabelAuthCheck(userAuth, label);
+
+        String query = "MATCH (n) WHERE ID(n)=$id REMOVE n:" + label + " RETURN 'delete node " + nodeId + " label `" + label + "` succeeded!' AS message";
+        Map<String, Object> params = new HashMap<String, Object>() {{
+            put("id", nodeId);
+        }};
+        return execute(query, params);
     }
 
     /**
      * 分用户检查入参
      **/
     @Override
-    public void removeNodeLabelParaCheck(JSONObject userAuth, Long nodeId, String label) throws ParameterNotFoundException {
+    public void removeNodeLabelParaCheck(JSONObject userAuth, String label) throws ParameterNotFoundException {
         // 属性的KEY、VALUE检查【VALUE值的标准配置类型检查】
-        JSONObject relTypeObj = UserAuthGet.relTypeObject(userAuth, null, "ACTED_IN", null);
+        JSONObject nodeLabelObj = UserAuthGet.nodeLabelObject(userAuth, label);
+
+        if (nodeLabelObj.isEmpty()) {
+            throw new ParameterNotFoundException("label permission not obtained[" + label + "]!");
+        }
 
         // 标签有效性检查
-//        checkLabelOrType(mergeRelType,relTypeObj.getJSONArray("invalid_values"));
+        checkLabelOrType(label, nodeLabelObj.getJSONArray("invalid_values"));
     }
 
     /**
      * 分用户权限检查
      */
     @Override
-    public void removeNodeLabelAuthCheck(JSONObject userAuth, Long nodeId, String label) throws ParameterNotFoundException {
-
+    public void removeNodeLabelAuthCheck(JSONObject userAuth, String label) throws ParameterNotFoundException {
+        // 获取标签操作权限
+        Operator operator = UserAuthGet.labelOperator(userAuth, label);
+        // 遍历操作权限，任一不满足删除权限则报错
+        if (operator.getLevel().intValue() < 3) {
+            throw new ParameterNotFoundException("label permission denied[No label deletion permission][" + operator.getOperate().toUpperCase() + "]!");
+        }
     }
 
     /**
@@ -514,16 +685,23 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
     public Stream<MapResult> removeRelationshipKey(@Name("relId") Long relId, @Name("fieldName") String fieldName) {
         String user = securityContext.subject().username();
         JSONObject userAuth = UserAuthGet.auth(user, PUBLISHER_AUTH_JSON);
-        removeRelationshipKeyParaCheck(userAuth, relId, fieldName);
-        return Stream.of(MapResult.empty());
+        // 参数检查
+        removeRelationshipKeyParaCheck(fieldName);
+        // 权限检查
+        removeRelationshipKeyAuthCheck(userAuth, relId, fieldName);
+        String query = "MATCH ()-[r]->() WHERE ID(r)=$id REMOVE r." + fieldName + " RETURN 'delete relationship " + relId + " properties-key succeeded!' AS message";
+        Map<String, Object> params = new HashMap<String, Object>() {{
+            put("id", relId);
+        }};
+        return execute(query, params);
     }
 
     /**
      * 分用户检查入参
      **/
     @Override
-    public void removeRelationshipKeyParaCheck(JSONObject userAuth, Long relId, String fieldName) throws ParameterNotFoundException {
-        // 字段有效性检查
+    public void removeRelationshipKeyParaCheck(String fieldName) throws ParameterNotFoundException {
+        // 标签有效性检查
         checkField(fieldName);
     }
 
@@ -532,7 +710,39 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      */
     @Override
     public void removeRelationshipKeyAuthCheck(JSONObject userAuth, Long relId, String fieldName) throws ParameterNotFoundException {
+        JSONObject object = typeInfoAuth(userAuth, relId);
+        if (!object.isEmpty()) {
+            // 判断指定的属性键是否满足要求的操作权限级别
+            prosAuthLevelJudge(object, new HashSet<String>() {{
+                add(fieldName);
+            }}, 5, "deletion");
+        } else {
+            throw new ParameterNotFoundException("relationshipType permission denied[No relationshipType deletion permission][relationshipType is null]!");
+        }
+    }
 
+    /**
+     * 从用户权限中获取属性KEY权限列表，并通过权限级别判断指定的属性KEY是否满足指定权限
+     *
+     * @param object:用户权限
+     * @param keys:属性键列表
+     * @param level:小于该权限级别则报警提示
+     * @param operateType:操作类别
+     * @return
+     * @Description: TODO
+     */
+    private void prosAuthLevelJudge(JSONObject object, Set<String> keys, int level, String operateType) {
+        if (Objects.nonNull(keys) && !keys.isEmpty()) {
+            // 检查属性权限
+            // 获取标签下指定属性KEY的所有操作权限
+            List<Operator> operators = UserAuthGet.prosKeyOperator(object, keys);
+            // 遍历操作权限，任一不满足删除权限则报错
+            operators.forEach(operator -> {
+                if (operator.getLevel().intValue() < level) {
+                    throw new ParameterNotFoundException("properties-key permission denied[No properties-key " + operateType + " permission][" + operator.getOperate().toUpperCase() + "]!");
+                }
+            });
+        }
     }
 
     /**
@@ -545,30 +755,49 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      */
     @Override
     @Procedure(name = "olab.security.publisher.add.node.label", mode = WRITE)
-    @Description("CALL olab.security.publisher.add.node.label({node_id},{label}) YIELD node RETURN node")
+    @Description("CALL olab.security.publisher.add.node.label({node_id},{label}) YIELD value RETURN value")
     public Stream<MapResult> addNodeLabel(@Name("nodeId") Long nodeId, @Name("label") String label) {
-        return Stream.of(MapResult.empty());
+        String user = securityContext.subject().username();
+        JSONObject userAuth = UserAuthGet.auth(user, PUBLISHER_AUTH_JSON);
+        // 参数检查
+        addNodeLabelParaCheck(userAuth, label);
+        // 权限检查
+        addNodeLabelAuthCheck(userAuth, label);
+
+        String query = "MATCH (n) WHERE ID(n)=$id SET n:" + label + " RETURN 'add node " + nodeId + " label `" + label + "` succeeded!' AS message";
+        Map<String, Object> params = new HashMap<String, Object>() {{
+            put("id", nodeId);
+        }};
+        return execute(query, params);
     }
 
     /**
      * 分用户检查入参
      **/
     @Override
-    public void addNodeLabelParaCheck(JSONObject userAuth, Long nodeId, String label) throws ParameterNotFoundException {
+    public void addNodeLabelParaCheck(JSONObject userAuth,  String label) throws ParameterNotFoundException {
         // 属性的KEY、VALUE检查【VALUE值的标准配置类型检查】
         JSONObject nodeLabelObj = UserAuthGet.nodeLabelObject(userAuth, label);
 
+        if (nodeLabelObj.isEmpty()) {
+            throw new ParameterNotFoundException("label permission not obtained[" + label + "]!");
+        }
+
         // 标签有效性检查
         checkLabelOrType(label, nodeLabelObj.getJSONArray("invalid_values"));
-
     }
 
     /**
      * 分用户权限检查
      */
     @Override
-    public void addNodeLabelAuthCheck(JSONObject userAuth, Long nodeId, String label) throws ParameterNotFoundException {
-
+    public void addNodeLabelAuthCheck(JSONObject userAuth, String label) throws ParameterNotFoundException {
+        // 获取标签操作权限
+        Operator operator = UserAuthGet.labelOperator(userAuth, label);
+        // 遍历操作权限，任一不满足删除权限则报错
+        if (operator.getLevel().intValue() < 3) {
+            throw new ParameterNotFoundException("label permission denied[No label deletion permission][" + operator.getOperate().toUpperCase() + "]!");
+        }
     }
 
     /**
@@ -600,8 +829,10 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      * @Description: TODO
      */
     private void checkValue(Object value, String valueCheckType) {
-        if (!Types.of(value).toString().equals(valueCheckType)) {
-            throw new ParameterNotFoundException("the value is of the wrong type or the field does not have permission!");
+        String valueType = Objects.nonNull(value) ? Types.of(value).toString().toUpperCase() : "Can't set null value!";
+        String checkType = Objects.nonNull(valueCheckType) ? valueCheckType.toUpperCase() : "Field can not get a permission type!";
+        if (!valueType.equals(checkType)) {
+            throw new ParameterNotFoundException("the value is of the wrong type or the field does not have permission[NEED:" + checkType + ",BUT OFFER:" + valueType + "]!");
         }
     }
 
@@ -613,7 +844,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      */
     private void checkValueValidity(Object value, JSONArray valueCheckValidity) {
         if (Objects.nonNull(valueCheckValidity) && valueCheckValidity.contains(value)) {
-            throw new ParameterNotFoundException("value validation failed!");
+            throw new ParameterNotFoundException("value validation failed[invalid_values:"+valueCheckValidity.toJSONString()+"]!");
         }
     }
 
@@ -642,7 +873,16 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
                 })
                 .map(v -> (JSONObject) v)
                 .findFirst()
-                .orElse(new JSONObject()).getJSONArray("invalid_values");
+                .orElse(new JSONObject()).getJSONArray("invalid_values")
+                .parallelStream()
+                .map(v -> {
+                    if (v instanceof Integer) {
+                        return Long.valueOf(String.valueOf(v));
+                    } else {
+                        return v;
+                    }
+                })
+                .collect(Collectors.toCollection(JSONArray::new));
     }
 
     /**
@@ -855,6 +1095,42 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
                 }
             }
         });
+    }
+
+    /**
+     * 通过关系ID获取关系的基本信息
+     *
+     * @param
+     * @return
+     * @Description: TODO
+     */
+    private Optional<MapResult> typeInfo(Long relId) {
+        String query = "MATCH ()-[r]->() WHERE ID(r)=$id RETURN LABELS(STARTNODE(r)) AS start_labels,TYPE(r) AS type,LABELS(ENDNODE(r)) AS end_labels,PROPERTIES(r) AS pros";
+        Map<String, Object> params = new HashMap<String, Object>() {{
+            put("id", relId);
+        }};
+        return execute(query, params).findFirst();
+    }
+
+    /**
+     * @param relId:关系ID
+     * @param userAuth:用户权限
+     * @return
+     * @Description: TODO
+     */
+    private JSONObject typeInfoAuth(JSONObject userAuth, Long relId) {
+        Optional<MapResult> result = typeInfo(relId);
+        if (result.isPresent()) {
+            MapResult mapResult = result.get();
+            Map<String, Object> value = mapResult.value;
+            List<String> startLabels = (List<String>) value.get("start_labels");
+            String type = (String) value.get("type");
+            List<String> endLabels = (List<String>) value.get("end_labels");
+            // 过滤出来的关系的权限
+            return UserAuthGet.relTypeObject(userAuth, startLabels, type, endLabels);
+        } else {
+            throw new ParameterNotFoundException("permissions cannot be judged!");
+        }
     }
 }
 

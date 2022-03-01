@@ -174,12 +174,12 @@ public interface PublisherProcFuncInter {
     /**
      * 分用户检查入参
      **/
-    void removeNodeLabelParaCheck(JSONObject userAuth, Long nodeId, String label) throws ParameterNotFoundException;
+    void removeNodeLabelParaCheck(JSONObject userAuth, String label) throws ParameterNotFoundException;
 
     /**
      * 分用户权限检查
      **/
-    void removeNodeLabelAuthCheck(JSONObject userAuth, Long nodeId, String label) throws ParameterNotFoundException;
+    void removeNodeLabelAuthCheck(JSONObject userAuth, String label) throws ParameterNotFoundException;
 
     /**
      * 删除关系的属性键
@@ -193,7 +193,7 @@ public interface PublisherProcFuncInter {
     /**
      * 分用户检查入参
      **/
-    void removeRelationshipKeyParaCheck(JSONObject userAuth, Long relId, String fieldName) throws ParameterNotFoundException;
+    void removeRelationshipKeyParaCheck(String fieldName) throws ParameterNotFoundException;
 
     /**
      * 分用户权限检查
@@ -213,12 +213,12 @@ public interface PublisherProcFuncInter {
     /**
      * 分用户检查入参
      **/
-    void addNodeLabelParaCheck(JSONObject userAuth, Long nodeId, String label) throws ParameterNotFoundException;
+    void addNodeLabelParaCheck(JSONObject userAuth, String label) throws ParameterNotFoundException;
 
     /**
      * 分用户权限检查
      **/
-    void addNodeLabelAuthCheck(JSONObject userAuth, Long nodeId, String label) throws ParameterNotFoundException;
+    void addNodeLabelAuthCheck(JSONObject userAuth, String label) throws ParameterNotFoundException;
 
 }
 
