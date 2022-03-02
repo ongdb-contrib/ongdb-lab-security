@@ -7,10 +7,7 @@ package data.lab.ongdb.security.execute;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import data.lab.ongdb.security.common.Operator;
-import data.lab.ongdb.security.common.ParaWrap;
-import data.lab.ongdb.security.common.Types;
-import data.lab.ongdb.security.common.UserAuthGet;
+import data.lab.ongdb.security.common.*;
 import data.lab.ongdb.security.inter.PublisherProcFuncInter;
 import data.lab.ongdb.security.result.MapResult;
 import org.neo4j.cypher.ParameterNotFoundException;
@@ -775,7 +772,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      * 分用户检查入参
      **/
     @Override
-    public void addNodeLabelParaCheck(JSONObject userAuth,  String label) throws ParameterNotFoundException {
+    public void addNodeLabelParaCheck(JSONObject userAuth, String label) throws ParameterNotFoundException {
         // 属性的KEY、VALUE检查【VALUE值的标准配置类型检查】
         JSONObject nodeLabelObj = UserAuthGet.nodeLabelObject(userAuth, label);
 
@@ -808,18 +805,44 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
     }
 
     /**
-     * @param properties:属性列表 field check operator
+     * @param properties:属性列表 field check operator constraint
      * @param map:用户传入属性map
      * @return
      * @Description: TODO
      */
-    private void checkFieldValue(JSONArray properties, HashMap<String, Object> map) {
+    private void checkFieldValue(JSONArray properties, HashMap<String, Object> map) throws ParameterNotFoundException{
         for (String key : map.keySet()) {
             Object value = map.get(key);
             checkField(key);
             checkValue(value, getValueCheckType(properties, key));
             checkValueValidity(value, getValueCheckValidity(properties, key));
         }
+        checkConstraint(map.keySet(), properties);
+    }
+
+    /**
+     * 对属性的约束类型实施校验检查
+     *
+     * @param keys:用户传入的属性KEY
+     * @param properties:属性权限
+     * @return
+     * @Description: TODO
+     */
+    private void checkConstraint(Set<String> keys, JSONArray properties) throws ParameterNotFoundException{
+        JSONArray filterProperties = properties.parallelStream()
+                .filter(v -> {
+                    JSONObject jsonObject = (JSONObject) v;
+                    return Constraint.EXISTS.getValue()
+                            .equals(jsonObject.getString("constraint").toLowerCase());
+                })
+                .collect(Collectors.toCollection(JSONArray::new));
+        filterProperties.forEach(v->{
+            JSONObject jsonObject = (JSONObject) v;
+            String field = jsonObject.getString("field");
+            if (!keys.contains(field)){
+                throw new ParameterNotFoundException("exists constraint check failed["+field+" must be set]!");
+            }
+        });
     }
 
     /**
@@ -844,7 +867,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      */
     private void checkValueValidity(Object value, JSONArray valueCheckValidity) {
         if (Objects.nonNull(valueCheckValidity) && valueCheckValidity.contains(value)) {
-            throw new ParameterNotFoundException("value validation failed[invalid_values:"+valueCheckValidity.toJSONString()+"]!");
+            throw new ParameterNotFoundException("value validation failed[invalid_values:" + valueCheckValidity.toJSONString() + "]!");
         }
     }
 

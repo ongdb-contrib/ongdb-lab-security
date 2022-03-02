@@ -112,7 +112,7 @@ public class Auth implements AuthInter {
                     JSONArray properties = JSONArray.parseArray(JSON.toJSONString(v.get("properties")));
                     for (int j = 0; j < properties.size(); j++) {
                         JSONObject object = (JSONObject) properties.get(j);
-                        for (String field : new String[]{"field", "operator", "check"}) {
+                        for (String field : new String[]{"field", "operator", "check","constraint"}) {
                             if (!object.containsKey(field)) {
                                 throw new ParameterNotFoundException("relTypes.properties:" + field + " not exists!" + "index:" + i + ",properties_index:" + j);
                             } else if (!(object.get(field) instanceof String)) {
@@ -163,7 +163,7 @@ public class Auth implements AuthInter {
                     JSONArray properties = JSONArray.parseArray(JSON.toJSONString(v.get("properties")));
                     for (int j = 0; j < properties.size(); j++) {
                         JSONObject object = (JSONObject) properties.get(j);
-                        for (String field : new String[]{"field", "operator", "check"}) {
+                        for (String field : new String[]{"field", "operator", "check","constraint"}) {
                             if (!object.containsKey(field)) {
                                 throw new ParameterNotFoundException("nodeLabels.properties:" + field + " not exists!" + "index:" + i + ",properties_index:" + j);
                             } else if (!(object.get(field) instanceof String)) {

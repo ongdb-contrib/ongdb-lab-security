@@ -37,7 +37,7 @@ public class AuthTest {
     @Test
     public void setPublisher() {
         try (Transaction tx = DB_PROC.beginTx()) {
-            Result res = DB_PROC.execute("CALL olab.security.setPublisher('publisher-1',[{label:'Person',invalid_values:['人物'],properties:[{field:'name',operator:'DELETER_RESTRICT',check:'STRING',invalid_values:['001','']}],operator:'EDITOR'}],[{start_label:'Person',type:'ACTED_IN',invalid_values:['参演'],end_label:'Movie',operator:'DELETER_RESTRICT',properties:[{field:'date',operator:'PUBLISHER',check:'LONG',invalid_values:['2021','']}]}]) YIELD username,currentRole,nodeLabels,relTypes RETURN username,currentRole,nodeLabels,relTypes");
+            Result res = DB_PROC.execute("CALL olab.security.setPublisher('publisher-1', [{label:'Person',invalid_values:['人物'],properties:[    {    field:'name',    operator:'DELETER_RESTRICT',    check:'STRING',    invalid_values:['001',''],    constraint:''    }],operator:'EDITOR'},{label:'Movie',invalid_values:['电影'],properties:[    {    field:'name',    operator:'DELETER_RESTRICT',    check:'STRING',    invalid_values:['001',''],    constraint:'EXISTS'    }],operator:'EDITOR'} ], [{start_label:'Person',type:'ACTED_IN',invalid_values:['参演'],end_label:'Movie',operator:'DELETER_RESTRICT',properties:[    {    field:'date',    operator:'PUBLISHER',    check:'INTEGER',    invalid_values:['2021',''],    constraint:'EXISTS'    }    ]} ] ) YIELD username,currentRole,nodeLabels,relTypes RETURN username,currentRole,nodeLabels,relTypes");
             System.out.println(res.resultAsString());
         }
     }

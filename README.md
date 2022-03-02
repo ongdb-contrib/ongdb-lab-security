@@ -93,13 +93,64 @@ CALL dbms.security.addRoleToUser('publisher_proc',user) RETURN user;
 >3. properties不为空时表示对可操作属性进行限制,为空时表示没有配置属性权限
 >4. 对属性值进行检查：为用户设置权限时，对于值的类型也设置了`check`操作，在这里检查用户输入的值类型是否满足管理员限定的要求
 >5. 对值也可以限制：设置权限时可设置`invalid_values`参数，表示对值进行验证，如果值包含在这个列表中则提示错误，通常使用在限制用户输入错误的值或限制用户不能设置特定的属性值
+>6. `constraint`参数支持对属性增加`EXISTS`限制，表示该属性必须存在，不需要加限制则保留空即可
 
 >`olab.security.setPublisher`入参：
 >1. @param username:用户名
 >2. @param nodeLabels:可操作的标签列表【可为空】【追加】 label properties[<field,operator>] operator
 >3. @param relTypes:可操作的关系类型列表【可为空】【追加】 start_label type end_label properties[<field,operator[]>] operator
 ```
-CALL olab.security.setPublisher('publisher-1',[{label:'Person',invalid_values:['人物'],properties:[{field:'name',operator:'DELETER_RESTRICT',check:'STRING',invalid_values:['001','']}],operator:'EDITOR'},{label:'Movie',invalid_values:['电影'],properties:[{field:'name',operator:'DELETER_RESTRICT',check:'STRING',invalid_values:['001','']}],operator:'EDITOR'}],[{start_label:'Person',type:'ACTED_IN',invalid_values:['参演'],end_label:'Movie',operator:'DELETER_RESTRICT',properties:[{field:'date',operator:'PUBLISHER',check:'INTEGER',invalid_values:['2021','']}]}]) YIELD username,currentRole,nodeLabels,relTypes RETURN username,currentRole,nodeLabels,relTypes
+CALL olab.security.setPublisher('publisher-1',
+[
+	{
+    label:'Person',
+	invalid_values:['人物'],
+    properties:[
+    	{
+        field:'name',
+        operator:'DELETER_RESTRICT',
+        check:'STRING',
+        invalid_values:['001',''],
+        constraint:''
+        }
+    ],
+    operator:'EDITOR'
+    }
+    ,
+    {
+    label:'Movie',
+    invalid_values:['电影'],
+    properties:[
+    	{
+        field:'name',
+        operator:'DELETER_RESTRICT',
+        check:'STRING',
+        invalid_values:['001',''],
+        constraint:'EXISTS'
+        }
+    ],
+    operator:'EDITOR'
+    }
+],
+[
+	{
+    start_label:'Person',
+    type:'ACTED_IN',
+    invalid_values:['参演'],
+    end_label:'Movie',
+    operator:'DELETER_RESTRICT',
+    properties:[
+    	{
+        field:'date',
+        operator:'PUBLISHER',
+        check:'INTEGER',
+        invalid_values:['2021',''],
+        constraint:'EXISTS'
+        }
+        ]
+    }
+]
+) YIELD username,currentRole,nodeLabels,relTypes RETURN username,currentRole,nodeLabels,relTypes
 ```
 
 - 为`Reader-1`配置权限
@@ -108,7 +159,30 @@ CALL olab.security.setPublisher('publisher-1',[{label:'Person',invalid_values:['
 // @param username:用户名
 // @param queries:可执行查询列表 query_id query【可为空】【追加】【query_id不可重复】【Query需要返回属性键值格式，不支持直接返回节点和关系】
 // 配置时可加入一个`description`字段对查询含义进行描述，方便使用者理解；该参数为可选参数
-CALL olab.security.setReader('reader-1',[{query_id:'query001',query:'MATCH (n) RETURN n.name AS name LIMIT 10'},{query_id:'query002',query:'MATCH (n) WITH n LIMIT 10 RETURN olab.result.transfer(n) AS mapList;',description:'查询任意十个节点并输出Table'},{query_id:'query003',query:'MATCH ()-[r]->() WITH r LIMIT 10 WITH olab.result.transfer(r) AS mapList UNWIND mapList AS map RETURN map;'},{query_id:'query004',query:'MATCH (tom {name:$name}) RETURN tom.name AS name,tom.born AS born;'}]) YIELD username,currentRole,queries RETURN username,currentRole,queries
+CALL olab.security.setReader('reader-1',
+[
+	{
+    query_id:'query001',
+    query:'MATCH (n) RETURN n.name AS name LIMIT 10'
+    }
+    ,
+    {
+    query_id:'query002',
+    query:'MATCH (n) WITH n LIMIT 10 RETURN olab.result.transfer(n) AS mapList;',
+    description:'查询任意十个节点并输出Table'
+    }
+    ,
+    {
+    query_id:'query003',
+    query:'MATCH ()-[r]->() WITH r LIMIT 10 WITH olab.result.transfer(r) AS mapList UNWIND mapList AS map RETURN map;'
+    }
+    ,
+    {
+    query_id:'query004',
+    query:'MATCH (tom {name:$name}) RETURN tom.name AS name,tom.born AS born;'
+    }
+]
+) YIELD username,currentRole,queries RETURN username,currentRole,queries
 ```
 
 - 获取指定用户的权限列表
