@@ -27,7 +27,7 @@
 - 2.修改`conf`配置
 ```
 // 为角色指定权限
-dbms.security.procedures.roles=olab.security.publisher.*:publisher_proc;olab.security.reader*:reader_proc;olab.security.get*:publisher_proc,reader_proc;
+dbms.security.procedures.roles=olab.security.publisher.*:publisher_proc;olab.security.reader*:reader_proc;olab.security.get*:publisher_proc,reader_proc;routing:publisher_proc,reader_proc;apoc.bolt.execute:publisher_proc,reader_proc;
 ```
 - 3.重启图数据库
 
@@ -276,5 +276,14 @@ CALL olab.security.reader('query001',NULL) YIELD value RETURN value;
 CALL olab.security.reader('query004',{name:'Tom Hanks'}) YIELD value RETURN value;
 ```
 
-
+## 集群状态下使用
+- 在单机情况下下列写入操作可以正常执行，但是在集群状态下只读节点上该查询是无法正常执行的
+```
+CALL olab.security.publisher.merge.node('Person','name','test',NULL) YIELD value RETURN value
+```
+- 集群状态下使用`routing`过程进行路由转发，并在`auth`文件下配置`security_routing.access`文件，并写入bolt协议映射的CORE节点的地址即可
+```
+// 配置好以后，在只读节点也可以运行该查询
+CALL routing("publisher-1","abc%25pro","CALL olab.security.publisher.merge.node('Person','name','test',NULL) YIELD value RETURN value")
+```
 

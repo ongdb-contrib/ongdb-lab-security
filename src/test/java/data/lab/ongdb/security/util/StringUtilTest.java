@@ -22,6 +22,11 @@ public class StringUtilTest {
         System.out.println(StringUtil.btnSquareBktOnce(null));
         System.out.println(StringUtil.btnSquareBktOnce(""));
     }
+
+    @Test
+    public void string() {
+        System.out.println("reader_proc\nreader_proc".replace("\n",""));
+    }
 }
 
 
