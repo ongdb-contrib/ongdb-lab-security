@@ -93,7 +93,7 @@ CALL dbms.security.addRoleToUser('publisher_proc',user) RETURN user;
 >3. properties不为空时表示对可操作属性进行限制,为空时表示没有配置属性权限
 >4. 对属性值进行检查：为用户设置权限时，对于值的类型也设置了`check`操作，在这里检查用户输入的值类型是否满足管理员限定的要求
 >5. 对值也可以限制：设置权限时可设置`invalid_values`参数，表示对值进行验证，如果值包含在这个列表中则提示错误，通常使用在限制用户输入错误的值或限制用户不能设置特定的属性值
->6. `constraint`参数支持对属性增加`EXISTS`限制，表示该属性必须存在，不需要加限制则保留空即可
+>6. `constraint`参数支持对属性增加`EXISTS`限制，表示该属性必须存在，不需要加限制则保留空字符串即可
 
 >`olab.security.setPublisher`入参：
 >1. @param username:用户名

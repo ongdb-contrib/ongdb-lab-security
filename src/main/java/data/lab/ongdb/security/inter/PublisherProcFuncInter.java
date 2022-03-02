@@ -193,7 +193,7 @@ public interface PublisherProcFuncInter {
     /**
      * 分用户检查入参
      **/
-    void removeRelationshipKeyParaCheck(String fieldName) throws ParameterNotFoundException;
+    void removeRelationshipKeyParaCheck(JSONObject userAuth, Long relId,String fieldName) throws ParameterNotFoundException;
 
     /**
      * 分用户权限检查

@@ -94,7 +94,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
         checkFieldValue(nodeLabelObj.getJSONArray("properties"), new HashMap<String, Object>() {{
             putAll(Objects.nonNull(otherPros) ? otherPros : Collections.emptyMap());
             put(mergeField, mergeValue);
-        }});
+        }}, true);
     }
 
     /**
@@ -252,7 +252,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
 
         checkFieldValue(relTypeObj.getJSONArray("properties"), new HashMap<String, Object>() {{
             putAll(Objects.nonNull(relPros) ? relPros : Collections.emptyMap());
-        }});
+        }}, true);
     }
 
     /**
@@ -431,7 +431,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
             checkFieldValue(nodeLabelObj.getJSONArray("properties"), new HashMap<String, Object>() {{
                 putAll(Collections.emptyMap());
                 put(fieldName, fieldValue);
-            }});
+            }}, false);
         }
     }
 
@@ -502,7 +502,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
                 checkFieldValue(object.getJSONArray("properties"), new HashMap<String, Object>() {{
                     putAll(Collections.emptyMap());
                     put(fieldName, fieldValue);
-                }});
+                }}, false);
             } else {
                 throw new ParameterNotFoundException("relationshipType permission denied[No relationshipType deletion permission][relationshipType is null]!");
             }
@@ -592,6 +592,34 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
                 throw new ParameterNotFoundException("label permission not obtained[" + label + "]!");
             }
             checkField(fieldName);
+
+            checkHasExistsConstraintThenError(fieldName, UserAuthGet.nodeLabelObject(userAuth, label).getJSONArray("properties"));
+        }
+    }
+
+    /**
+     * 字段有约束则报错
+     *
+     * @param field:字段
+     * @param properties:属性权限
+     * @return
+     * @Description: TODO
+     */
+    private void checkHasExistsConstraintThenError(String field, JSONArray properties) {
+        // 拿到用户有权限且设置了约束的属性
+        Optional<String> optional = properties.parallelStream()
+                .filter(v -> {
+                    JSONObject jsonObject = (JSONObject) v;
+                    return field.equals(jsonObject.get("field"));
+                })
+                .map(v->{
+                    JSONObject jsonObject = (JSONObject) v;
+                    return jsonObject.getString("constraint");
+                })
+                .filter(v-> Objects.nonNull(v) && !"".equals(v))
+                .findFirst();
+        if (optional.isPresent()){
+            throw new ParameterNotFoundException("exists constraint check failed[" + field + " cannot be deleted]!");
         }
     }
 
@@ -683,7 +711,7 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
         String user = securityContext.subject().username();
         JSONObject userAuth = UserAuthGet.auth(user, PUBLISHER_AUTH_JSON);
         // 参数检查
-        removeRelationshipKeyParaCheck(fieldName);
+        removeRelationshipKeyParaCheck(userAuth, relId,fieldName);
         // 权限检查
         removeRelationshipKeyAuthCheck(userAuth, relId, fieldName);
         String query = "MATCH ()-[r]->() WHERE ID(r)=$id REMOVE r." + fieldName + " RETURN 'delete relationship " + relId + " properties-key succeeded!' AS message";
@@ -697,9 +725,18 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      * 分用户检查入参
      **/
     @Override
-    public void removeRelationshipKeyParaCheck(String fieldName) throws ParameterNotFoundException {
-        // 标签有效性检查
+    public void removeRelationshipKeyParaCheck(JSONObject userAuth, Long relId,String fieldName) throws ParameterNotFoundException {
+
+        // 关系有效性检查
         checkField(fieldName);
+
+        JSONObject object = typeInfoAuth(userAuth, relId);
+        if (!object.isEmpty()) {
+            checkHasExistsConstraintThenError(fieldName, object.getJSONArray("properties"));
+
+        } else {
+            throw new ParameterNotFoundException("relationshipType permission denied[No relationshipType deletion permission][relationshipType is null]!");
+        }
     }
 
     /**
@@ -810,14 +847,16 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      * @return
      * @Description: TODO
      */
-    private void checkFieldValue(JSONArray properties, HashMap<String, Object> map) throws ParameterNotFoundException{
+    private void checkFieldValue(JSONArray properties, HashMap<String, Object> map, boolean isCheckConstraint) throws ParameterNotFoundException {
         for (String key : map.keySet()) {
             Object value = map.get(key);
             checkField(key);
             checkValue(value, getValueCheckType(properties, key));
             checkValueValidity(value, getValueCheckValidity(properties, key));
         }
-        checkConstraint(map.keySet(), properties);
+        if (isCheckConstraint) {
+            checkConstraint(map.keySet(), properties);
+        }
     }
 
     /**
@@ -828,7 +867,8 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
      * @return
      * @Description: TODO
      */
-    private void checkConstraint(Set<String> keys, JSONArray properties) throws ParameterNotFoundException{
+    private void checkConstraint(Set<String> keys, JSONArray properties) throws ParameterNotFoundException {
+        // 拿到用户有权限且设置了约束的属性
         JSONArray filterProperties = properties.parallelStream()
                 .filter(v -> {
                     JSONObject jsonObject = (JSONObject) v;
@@ -836,11 +876,12 @@ public class PublisherProcFunc implements PublisherProcFuncInter {
                             .equals(jsonObject.getString("constraint").toLowerCase());
                 })
                 .collect(Collectors.toCollection(JSONArray::new));
-        filterProperties.forEach(v->{
+        // 设置了约束的属性如果没有被用户设置，则报错
+        filterProperties.forEach(v -> {
             JSONObject jsonObject = (JSONObject) v;
             String field = jsonObject.getString("field");
-            if (!keys.contains(field)){
-                throw new ParameterNotFoundException("exists constraint check failed["+field+" must be set]!");
+            if (!keys.contains(field)) {
+                throw new ParameterNotFoundException("exists constraint check failed[" + field + " must be set]!");
             }
         });
     }
